@@ -3,8 +3,8 @@
 namespace App;
 
 use App\Traits\Auditable;
-use DateTimeInterface;
 use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -88,7 +88,7 @@ class LogicalServer extends Model
         'updated_at',
         'deleted_at',
         'install_date',
-        'update_date'
+        'update_date',
     ];
 
     /**
@@ -125,6 +125,11 @@ class LogicalServer extends Model
     public function servers()
     {
         return $this->belongsToMany(PhysicalServer::class)->orderBy('name');
+    }
+
+    public function databases()
+    {
+        return $this->belongsToMany(Database::class)->orderBy('name');
     }
 
     public function certificates()

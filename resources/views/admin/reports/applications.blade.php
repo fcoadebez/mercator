@@ -212,6 +212,64 @@
                                         </td>
                                     </tr>
                                     <tr>
+                                        <th>{{ trans("cruds.application.fields.RTO") }}</th>
+                                        <td>
+                                            @if (intdiv($application->rto,60 * 24) > 0)
+                                                {{ intdiv($application->rto,60 * 24) }}
+                                                @if (intdiv($application->rto,60 * 24) > 1)
+                                                    {{ trans('global.days') }}
+                                                @else
+                                                    {{ trans('global.day') }}
+                                                @endif
+                                            @endif
+                                            @if ((intdiv($application->rto,60) % 24) > 0)
+                                                {{ intdiv($application->rto,60) % 24 }}
+                                                @if ((intdiv($application->rto,60) % 24) > 1)
+                                                    {{ trans('global.hours') }}
+                                                @else
+                                                    {{ trans('global.hour') }}
+                                                @endif
+                                            @endif
+                                            @if (($application->rto % 60) > 0)
+                                                {{ $application->rto % 60 }}
+                                                @if (($application->rto % 60) > 1)
+                                                    {{ trans('global.minutes') }}
+                                                @else
+                                                    {{ trans('global.minute') }}
+                                                @endif
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>{{ trans("cruds.application.fields.RPO") }}</th>
+                                        <td>
+                                            {{ intdiv($application->rpo,60 * 24) }}
+                                            @if (intdiv($application->rpo,60 * 24) > 0)
+                                                @if (intdiv($application->rpo,60 * 24) > 1)
+                                                    {{ trans('global.days') }}
+                                                @else
+                                                    {{ trans('global.day') }}
+                                                @endif
+                                            @endif
+                                            @if ((intdiv($application->rpo,60) % 24) > 0)
+                                                {{ intdiv($application->rpo,60) % 24 }}
+                                                @if ((intdiv($application->rpo,60) % 24) > 1)
+                                                    {{ trans('global.hours') }}
+                                                @else
+                                                    {{ trans('global.hour') }}
+                                                @endif
+                                            @endif    
+                                            @if (($application->rpo % (24*60)) > 0)
+                                                {{ $application->rpo % (24*60) }}
+                                                @if (($application->rpo % (24*60)) > 1)
+                                                    {{ trans('global.minutes') }}
+                                                @else
+                                                    {{ trans('global.minute') }}
+                                                @endif
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    <tr>
                                         <th>{{ trans("cruds.application.fields.external") }}</th>
                                         <td>{{ $application->external}}</td>
                                     </tr>
@@ -502,6 +560,32 @@
                                         </td>
                                     </tr>
                                     <tr>
+                                        <th>{{ trans("cruds.database.fields.applications_helper") }}</th>
+                                        <td>
+                                            @foreach($database->applications as $application)
+                                                <a href="/admin/report/applications#APPLICATION{{ $application->id }}">{{ $application->name }}</a>
+                                                @if(!$loop->last)
+                                                ,
+                                                @endif                                                
+                                            @endforeach
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            {{ trans('cruds.database.fields.logical_servers') }}
+                                        </th>
+                                        <td>
+                                            @foreach($database->logicalServers as $logicalServer)
+                                                <a href="/admin/report/logical_infrastructure#LOGICAL_SERVER{{ $logicalServer->id }}">
+                                                    {{ $logicalServer->name }}
+                                                </a>
+                                                @if (!$loop->last)
+                                                ,
+                                                @endif
+                                            @endforeach
+                                        </td>
+                                    </tr>
+                                    <tr>
                                         <th>{{ trans("cruds.database.fields.security_need") }}</th>
                                         <td>
                                             {{ trans('global.confidentiality') }} :
@@ -632,59 +716,61 @@
 <!-- https://unpkg.com/d3-graphviz@3.0.5/build/d3-graphviz.js -->
 <script src="/js/d3-graphviz.js"></script>
 
-<script>
+<script> 
+let dotSrc=`
+digraph  {
+    @can('application_block_access')
+    @if (auth()->user()->granularity>=2)
+        @foreach($applicationBlocks as $ab) 
+            AB{{ $ab->id }} [label="{{ $ab->name }}" shape=none labelloc="b"  width=1 height=1.1 image="/images/applicationblock.png" href="#APPLICATIONBLOCK{{$ab->id}}"]
+        @endforEach
+    @endif
+    @endcan
+    @can('application_access')
+    @foreach($applications as $application) 
+        A{{ $application->id }} [label="{{ $application->name }}" shape=none labelloc="b"  width=1 height=1.1 image="/images/application.png" href="#APPLICATION{{$application->id}}"]
+        @if (auth()->user()->granularity>=2)
+            @foreach($application->services as $service) 
+                A{{ $application->id }} -> AS{{ $service->id}} 
+            @endforeach 
+        @endif
+        @foreach($application->databases as $database) 
+            A{{ $application->id }} -> DB{{ $database->id}} 
+        @endforeach 
+        @if (auth()->user()->granularity>=2)
+            @if ($application->application_block_id!=null)
+                AB{{ $application->application_block_id }} -> A{{ $application->id}}
+            @endif
+        @endif
+    @endforEach
+    @endcan
+    @can('application_service_access')
+    @if (auth()->user()->granularity>=2)
+        @foreach($applicationServices as $service) 
+            AS{{ $service->id }} [label="{{ $service->name }}" shape=none labelloc="b"  width=1 height=1.1 image="/images/applicationservice.png" href="#APPLICATIONSERVICE{{$service->id}}"]
+            @foreach($service->modules as $module) 
+                AS{{ $service->id }} -> M{{$module->id}}
+            @endforeach
+        @endforeach
+        @foreach($applicationModules as $module) 
+            M{{ $module->id }} [label="{{ $module->name }}" shape=none labelloc="b"  width=1 height=1.1 image="/images/applicationmodule.png" href="#APPLICATIONMODULE{{$module->id}}"]
+        @endforeach
+    @endif
+    @endcan
+    @can('database_access')
+    @foreach($databases as $database) 
+        DB{{ $database->id }} [label="{{ $database->name }}" shape=none labelloc="b"  width=1 height=1.1 image="/images/database.png" href="#DATABASE{{$database->id}}"]
+    @endforeach
+    @endcan
+}`;
+
 d3.select("#graph").graphviz()
     .addImage("/images/applicationblock.png", "64px", "64px")
     .addImage("/images/application.png", "64px", "64px")
     .addImage("/images/applicationservice.png", "64px", "64px")
     .addImage("/images/applicationmodule.png", "64px", "64px")
     .addImage("/images/database.png", "64px", "64px")
-    .renderDot("digraph  {\
-            <?php  $i=0; ?>\
-            @can('application_block_access')\
-            @if (auth()->user()->granularity>=2)\
-                @foreach($applicationBlocks as $ab) \
-                    AB{{ $ab->id }} [label=\"{{ $ab->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/applicationblock.png\" href=\"#APPLICATIONBLOCK{{$ab->id}}\"]\
-                @endforEach\
-            @endif\
-            @endcan\
-            @can('application_access')\
-            @foreach($applications as $application) \
-                A{{ $application->id }} [label=\"{{ $application->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/application.png\" href=\"#APPLICATION{{$application->id}}\"]\
-                @if (auth()->user()->granularity>=2)\
-                    @foreach($application->services as $service) \
-                        A{{ $application->id }} -> AS{{ $service->id}} \
-                    @endforeach \
-                @endif\
-                @foreach($application->databases as $database) \
-                    A{{ $application->id }} -> DB{{ $database->id}} \
-                @endforeach \
-                @if (auth()->user()->granularity>=2)\
-                    @if ($application->application_block_id!=null)\
-                        AB{{ $application->application_block_id }} -> A{{ $application->id}}\
-                    @endif\
-                @endif\
-            @endforEach\
-            @endcan\
-            @can('application_service_access')\
-            @if (auth()->user()->granularity>=2)\
-                @foreach($applicationServices as $service) \
-                    AS{{ $service->id }} [label=\"{{ $service->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/applicationservice.png\" href=\"#APPLICATIONSERVICE{{$service->id}}\"]\
-                    @foreach($service->modules as $module) \
-                        AS{{ $service->id }} -> M{{$module->id}}\
-                    @endforeach\
-                @endforeach\
-                @foreach($applicationModules as $module) \
-                    M{{ $module->id }} [label=\"{{ $module->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/applicationmodule.png\" href=\"#APPLICATIONMODULE{{$module->id}}\"]\
-                @endforeach\
-            @endif\
-            @endcan\
-            @can('database_access')\
-            @foreach($databases as $database) \
-                DB{{ $database->id }} [label=\"{{ $database->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/database.png\" href=\"#DATABASE{{$database->id}}\"]\
-            @endforeach\
-            @endcan\
-        }");
+    .renderDot(dotSrc);
 
 </script>
 @parent

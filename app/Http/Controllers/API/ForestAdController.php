@@ -3,28 +3,23 @@
 namespace App\Http\Controllers\API;
 
 use App\ForestAd;
-
+use App\Http\Controllers\Controller;
+use App\Http\Requests\MassDestroyForestAdRequest;
 use App\Http\Requests\StoreForestAdRequest;
 use App\Http\Requests\UpdateForestAdRequest;
-use App\Http\Requests\MassDestroyForestAdRequest;
 use App\Http\Resources\Admin\ForestAdResource;
-
 use Gate;
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-
-use Illuminate\Support\Facades\Log;
 
 class ForestAdController extends Controller
 {
     public function index()
     {
-    abort_if(Gate::denies('forestad_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('forestad_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-    $forestads = ForestAd::all();
+        $forestads = ForestAd::all();
 
-    return response()->json($forestads);
+        return response()->json($forestads);
     }
 
     public function store(StoreForestAdRequest $request)
@@ -45,22 +40,22 @@ class ForestAdController extends Controller
         return new ForestAdResource($forestad);
     }
 
-    public function update(UpdateForestAdRequest $request, ForestAd $forestad)
-    {     
+    public function update(UpdateForestAdRequest $request, ForestAd $forestAd)
+    {
         abort_if(Gate::denies('forestad_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $forestad->update($request->all());
+        $forestAd->update($request->all());
         // syncs
-        // $forestad->roles()->sync($request->input('roles', []));
+        // $forestAd->roles()->sync($request->input('roles', []));
 
         return response()->json();
     }
 
-    public function destroy(ForestAd $forestad)
+    public function destroy(ForestAd $forestAd)
     {
         abort_if(Gate::denies('forestad_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $forestad->delete();
+        $forestAd->delete();
 
         return response()->json();
     }
@@ -71,6 +66,4 @@ class ForestAdController extends Controller
 
         return response(null, Response::HTTP_NO_CONTENT);
     }
-
 }
-

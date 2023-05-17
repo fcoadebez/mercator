@@ -37,9 +37,11 @@
                         <th>
                             {{ trans('cruds.application.fields.application_block') }}
                         </th>
+                        <!--
                         <th>
                             {{ trans('cruds.application.fields.cartographers') }}
                         </th>
+                        -->
                         <th>
                         </th>
                     </tr>
@@ -49,28 +51,34 @@
                         <tr data-entry-id="{{ $application->id }}"
 
                         @if (
-                            ($application->description==null)||
-                            ($application->responsible==null)||
-                            ($application->technology==null)||
-                            ($application->type==null)||
-                            ((auth()->user()->granularity>=2)&&
-                                (
-                                ($application->entities->count()==0)||
-                                ($application->entity_resp_id==null)||
-                                ($application->users==null)||
-                                ($application->security_need_c==null)||
-                                ($application->security_need_i==null)||
-                                ($application->security_need_a==null)||
-                                ($application->security_need_t==null)||
-                                ($application->application_block==null)
+                                ($application->description==null)||
+                                ($application->responsible==null)||
+                                ($application->technology==null)||
+                                ($application->type==null)||
+                                ($application->processes->count()==0)||
+                                ((auth()->user()->granularity>=2)&&
+                                    (
+                                    ($application->entities->count()==0)||
+                                    ($application->entity_resp_id==null)||
+                                    ($application->users==null)||
+                                    ($application->security_need_c==null)||
+                                    ($application->security_need_i==null)||
+                                    ($application->security_need_a==null)||
+                                    ($application->security_need_t==null)||
+                                    ($application->application_block==null)
+                                    )
+                                )||
+                                ((auth()->user()->granularity==3)&&
+                                    (
+                                    ($application->vendor==null)||
+                                    ($application->product==null)||
+                                    ($application->version==null)
+                                    )
                                 )
-                            )||
-                            ($application->processes->count()==0)
                             )
-                                class="table-warning"
+                            class="table-warning"
                         @endif
-
-                          >
+                        >
                             <td>
 
                             </td>
@@ -99,6 +107,7 @@
                                 </a>
                                 @endif
                             </td>
+                            {{--
                             <td>
                                 @if ($application->cartographers !== null)
                                     @foreach($application->cartographers as $cartographer)
@@ -106,6 +115,7 @@
                                     @endforeach
                                 @endif
                             </td>
+                            --}}
                             <td>
                                 @can('m_application_show')
                                     <a class="btn btn-xs btn-primary" href="{{ route('admin.applications.show', $application->id) }}">

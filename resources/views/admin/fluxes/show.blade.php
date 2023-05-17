@@ -39,6 +39,14 @@
                         </td>
                     </tr>
                     <tr>
+                        <th width="10%">
+                            {{ trans('cruds.flux.fields.nature') }}
+                        </th>
+                        <td>
+                            {{ $flux->nature }}
+                        </td>
+                    </tr>
+                    <tr>
                         <th>
                             {{ trans('cruds.flux.fields.description') }}
                         </th>
@@ -114,6 +122,18 @@
                             @if ($flux->crypted==0)
                                 Non
                             @elseif ($flux->crypted==1)
+                                Oui
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            {{ trans('cruds.flux.fields.bidirectional') }}
+                        </th>
+                        <td>
+                            @if ($flux->bidirectional==0)
+                                Non
+                            @elseif ($flux->bidirectional==1)
                                 Oui
                             @endif
                         </td>

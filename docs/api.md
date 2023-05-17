@@ -6,6 +6,14 @@ Une API REST ([Representational State Transfer](https://fr.wikipedia.org/wiki/Re
 est une interface de programmation d'application qui respecte les contraintes du style d'architecture REST 
 et permet d'interagir avec les services web RESTful. 
 
+### Installer l'API sur Mercator
+
+pour installer l'API dans Mercator, il est nécessaire d'installer Passport en lançant cette commande :
+
+```bash
+php artisan passport:install
+```
+- l'environnement Docker prend en charge cette fonctionnalité nativement, via le l'entrypoint.
 
 ### Les APIs
 
@@ -249,3 +257,48 @@ Voici quelques exemples d'utilisation de l'API avec PHP :
 
     var_dump($response);
 ```
+
+### Python
+
+Voici un exemple d'utilisation de l'API en Python
+
+```python
+#!/usr/bin/python3
+
+import requests
+
+vheaders = {}
+vheaders['accept'] = 'application/json'
+vheaders['content-type'] = 'application/x-www-form-urlencoded'
+vheaders['cache-control'] = 'no-cache'
+
+print("Login")
+response = requests.post("http://127.0.0.1:8000/api/login", 
+    headers=vheaders, 
+    data= {'email':'admin@admin.com', 'password':'password'} )
+print(response.status_code)
+
+vheaders['Authorization'] = "Bearer " + response.json()['access_token']
+
+print("Get workstations")
+response = requests.get("http://127.0.0.1:8000/api/workstations", headers=vheaders)
+print(response.json())
+print(response.status_code)
+
+```
+
+### bash
+
+Voici un exemple d'utilisation de l'API en ligne de commande avec [CURL](https://curl.se/docs/manpage.html) et [JQ](https://stedolan.github.io/jq/)
+```
+# valid login and password
+data='{"email":"admin@admin.com","password":"password"}'
+
+# get a token after correct login
+token=$(curl -s -d ${data} -H "Content-Type: application/json" http://localhost:8000/api/login | jq -r .access_token)
+
+# query users and decode JSON data with JQ.
+curl -s -H "Content-Type: application/json" -H "Authorization: Bearer ${token}" "http://127.0.0.1:8000/api/users" | jq .
+
+```
+

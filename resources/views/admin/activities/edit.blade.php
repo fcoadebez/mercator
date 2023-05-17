@@ -20,6 +20,7 @@
                 @endif
                 <span class="help-block">{{ trans('cruds.activity.fields.name_helper') }}</span>
             </div>
+
             <div class="form-group">
                 <label class="recommended" for="description">{{ trans('cruds.activity.fields.description') }}</label>
                 <textarea class="form-control ckeditor {{ $errors->has('description') ? 'is-invalid' : '' }}" name="description" id="description">{!! old('description', $activity->description) !!}</textarea>
@@ -30,43 +31,52 @@
                 @endif
                 <span class="help-block">{{ trans('cruds.activity.fields.description_helper') }}</span>
             </div>
-            <div class="form-group">
-                <label for="operations">{{ trans('cruds.activity.fields.operations') }}</label>
-                <div style="padding-bottom: 4px">
-                    <span class="btn btn-info btn-xs select-all" style="border-radius: 0">{{ trans('global.select_all') }}</span>
-                    <span class="btn btn-info btn-xs deselect-all" style="border-radius: 0">{{ trans('global.deselect_all') }}</span>
-                </div>
-                <select class="form-control select2 {{ $errors->has('operations') ? 'is-invalid' : '' }}" name="operations[]" id="operations" multiple>
-                    @foreach($operations as $id => $operations)
-                        <option value="{{ $id }}" {{ (in_array($id, old('operations', [])) || $activity->operations->contains($id)) ? 'selected' : '' }}>{{ $operations }}</option>
-                    @endforeach
-                </select>
-                @if($errors->has('operations'))
-                    <div class="invalid-feedback">
-                        {{ $errors->first('operations') }}
-                    </div>
-                @endif
-                <span class="help-block">{{ trans('cruds.activity.fields.operations_helper') }}</span>
-            </div>
 
 
-            <div class="form-group">
-                <label for="operations">{{ trans('cruds.activity.fields.processes') }}</label>
-                <div style="padding-bottom: 4px">
-                    <span class="btn btn-info btn-xs select-all" style="border-radius: 0">{{ trans('global.select_all') }}</span>
-                    <span class="btn btn-info btn-xs deselect-all" style="border-radius: 0">{{ trans('global.deselect_all') }}</span>
-                </div>
-                <select class="form-control select2 {{ $errors->has('processes') ? 'is-invalid' : '' }}" name="processes[]" id="processes" multiple>
-                    @foreach($processes as $id => $identifiant)
-                        <option value="{{ $id }}" {{ (in_array($id, old('processes', [])) || $activity->activitiesProcesses->contains($id)) ? 'selected' : '' }}>{{ $identifiant }}</option>
-                    @endforeach
-                </select>
-                @if($errors->has('processes'))
-                    <div class="invalid-feedback">
-                        {{ $errors->first('processes') }}
+            <div class='row'>
+                <div class='col-6'>
+
+                    <div class="form-group">
+                        <label for="operations">{{ trans('cruds.activity.fields.processes') }}</label>
+                        <div style="padding-bottom: 4px">
+                            <span class="btn btn-info btn-xs select-all" style="border-radius: 0">{{ trans('global.select_all') }}</span>
+                            <span class="btn btn-info btn-xs deselect-all" style="border-radius: 0">{{ trans('global.deselect_all') }}</span>
+                        </div>
+                        <select class="form-control select2 {{ $errors->has('processes') ? 'is-invalid' : '' }}" name="processes[]" id="processes" multiple>
+                            @foreach($processes as $id => $identifiant)
+                                <option value="{{ $id }}" {{ (in_array($id, old('processes', [])) || $activity->activitiesProcesses->contains($id)) ? 'selected' : '' }}>{{ $identifiant }}</option>
+                            @endforeach
+                        </select>
+                        @if($errors->has('processes'))
+                            <div class="invalid-feedback">
+                                {{ $errors->first('processes') }}
+                            </div>
+                        @endif
+                        <span class="help-block">{{ trans('cruds.activity.fields.processes_helper') }}</span>
                     </div>
-                @endif
-                <span class="help-block">{{ trans('cruds.activity.fields.processes_helper') }}</span>
+
+                        </div>
+                        <div class='col-6'>
+
+                    <div class="form-group">
+                        <label for="operations">{{ trans('cruds.activity.fields.operations') }}</label>
+                        <div style="padding-bottom: 4px">
+                            <span class="btn btn-info btn-xs select-all" style="border-radius: 0">{{ trans('global.select_all') }}</span>
+                            <span class="btn btn-info btn-xs deselect-all" style="border-radius: 0">{{ trans('global.deselect_all') }}</span>
+                        </div>
+                        <select class="form-control select2 {{ $errors->has('operations') ? 'is-invalid' : '' }}" name="operations[]" id="operations" multiple>
+                            @foreach($operations as $id => $operation)
+                                <option value="{{ $id }}" {{ (in_array($id, old('operations', [])) || $activity->operations->contains($id)) ? 'selected' : '' }}>{{ $operation }}</option>
+                            @endforeach
+                        </select>
+                        @if($errors->has('operations'))
+                            <div class="invalid-feedback">
+                                {{ $errors->first('operations') }}
+                            </div>
+                        @endif
+                        <span class="help-block">{{ trans('cruds.activity.fields.operations_helper') }}</span>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
@@ -78,29 +88,30 @@
     </div>
 </div>
 
-
-
 @endsection
 
 @section('scripts')
+
 <script>
+
 $(document).ready(function () {
 
-  var allEditors = document.querySelectorAll('.ckeditor');
-  for (var i = 0; i < allEditors.length; ++i) {
+    var allEditors = document.querySelectorAll('.ckeditor');
+    for (var i = 0; i < allEditors.length; ++i) {
     ClassicEditor.create(
-      allEditors[i], {
-        extraPlugins: []
-      }
-    );
-  }
+        allEditors[i], {
+            extraPlugins: []
+            }
+        );
+    }
 
-  $(".select2-free").select2({
+    $(".select2-free").select2({
         placeholder: "{{ trans('global.pleaseSelect') }}",
         allowClear: true,
         tags: true
-    }) 
+        }
+    );
 
-});
+    });
 </script>
 @endsection

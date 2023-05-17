@@ -27,11 +27,13 @@
     <!-- link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/css/bootstrap-datetimepicker.min.css" rel="stylesheet" /-->
     <link href="{{ asset('/css/bootstrap-datetimepicker.min.css') }}" rel="stylesheet" />
 
-
     <!-- link href="https://unpkg.com/@coreui/coreui@2.1.16/dist/css/coreui.min.css" rel="stylesheet" /-->
     <link href="{{ asset('/css/coreui.min.css') }}" rel="stylesheet" />
-    <!-- link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.5.1/min/dropzone.min.css" rel="stylesheet" /-->
-    <link href="{{ asset('/css/dropzone.min.css') }}" rel="stylesheet" />
+
+    <!-- Dropzone -->
+    <!-- https://rawgit.com/enyo/dropzone/master/dist/dropzone.min.css -->
+    <link rel="stylesheet" href="{{ asset('/css/dropzone.css') }}">
+
     <!-- custom css -->
     <link href="{{ asset('css/custom.css') }}" rel="stylesheet" />
 
@@ -47,8 +49,8 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <a class="navbar-brand" href="/admin">
-            <span class="navbar-brand-full">{{ trans('panel.site_title') }}</span>
-            <span class="navbar-brand-minimized">M</span>
+            <span class="navbar-brand-full">{{ (env('APP_NAME') === null) || (env('APP_NAME') === "Laravel") ? "Mercator" : env('APP_NAME') }}</span>
+            <span class="navbar-brand-minimized"></span>
         </a>
         <button class="navbar-toggler sidebar-toggler d-md-down-none" type="button" data-toggle="sidebar-lg-show">
             <span class="navbar-toggler-icon"></span>
@@ -67,6 +69,9 @@
                       <a class="dropdown-item" href="/admin/report/administration">{{ trans('panel.menu.administration') }}</a>
                       <a class="dropdown-item" href="/admin/report/logical_infrastructure">{{ trans('panel.menu.logical_infrastructure') }}</a>
                       <a class="dropdown-item" href="/admin/report/physical_infrastructure">{{ trans('panel.menu.physical_infrastructure') }}</a>
+                      @can('physical_link_access')
+                        <a class="dropdown-item" href="/admin/report/network_infrastructure">{{ trans('panel.menu.network_infrastructure') }}</a>
+                      @endcan
                     </div>
                 </li>
 
@@ -77,9 +82,6 @@
                     <div class="dropdown-menu">
                       <a class="dropdown-item" href="/profile/preferences">{{ trans('panel.menu.options') }}</a>
                       <a class="dropdown-item" href="/profile/password">{{ trans('panel.menu.password') }}</a>
-                      @can('configure')
-                      <a class="dropdown-item" href="/admin/configuration">{{ trans('panel.menu.config') }}</a>
-                      @endcan
                     </div>
                 </li>
                 </li>
@@ -89,6 +91,7 @@
                       &nbsp {{ trans('panel.menu.documentation') }}
                     </a>
                     <div class="dropdown-menu">
+                      <a class="dropdown-item" href="/admin/report/explore">{{ trans('panel.menu.explore') }}</a>
                       <a class="dropdown-item" href="/admin/doc/report">{{ trans('panel.menu.reports') }}</a>
                       <a class="dropdown-item" href="/admin/doc/schema">{{ trans('panel.menu.schema') }}</a>
                       <a class="dropdown-item" href="/admin/doc/guide">{{ trans('panel.menu.guide') }}</a>
@@ -165,11 +168,8 @@
     <script src="/js/moment.min.js"></script>
     <!-- script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js"></script-->
     <script src="/js/bootstrap-datetimepicker.min.js"></script>
-
     <!--script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/js/select2.full.min.js"></script-->
     <script src="/js/select2.full.min.js"></script>
-    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.5.1/min/dropzone.min.js"></script-->
-    <script src="/js/dropzone.min.js"></script>
 
     <script src="{{ asset('js/main.js') }}"></script>
     <script>

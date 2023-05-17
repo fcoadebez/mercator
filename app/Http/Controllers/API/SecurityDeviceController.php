@@ -2,29 +2,24 @@
 
 namespace App\Http\Controllers\API;
 
-use App\SecurityDevice;
-
+use App\Http\Controllers\Controller;
+use App\Http\Requests\MassDestroySecurityDeviceRequest;
 use App\Http\Requests\StoreSecurityDeviceRequest;
 use App\Http\Requests\UpdateSecurityDeviceRequest;
-use App\Http\Requests\MassDestroySecurityDeviceRequest;
 use App\Http\Resources\Admin\SecurityDeviceResource;
-
+use App\SecurityDevice;
 use Gate;
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-
-use Illuminate\Support\Facades\Log;
 
 class SecurityDeviceController extends Controller
 {
     public function index()
     {
-    abort_if(Gate::denies('securitydevice_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('securitydevice_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-    $securitydevices = SecurityDevice::all();
+        $securitydevices = SecurityDevice::all();
 
-    return response()->json($securitydevices);
+        return response()->json($securitydevices);
     }
 
     public function store(StoreSecurityDeviceRequest $request)
@@ -38,29 +33,29 @@ class SecurityDeviceController extends Controller
         return response()->json($securitydevice, 201);
     }
 
-    public function show(SecurityDevice $securitydevice)
+    public function show(SecurityDevice $securityDevice)
     {
         abort_if(Gate::denies('securitydevice_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        return new SecurityDeviceResource($securitydevice);
+        return new SecurityDeviceResource($securityDevice);
     }
 
-    public function update(UpdateSecurityDeviceRequest $request, SecurityDevice $securitydevice)
-    {     
+    public function update(UpdateSecurityDeviceRequest $request, SecurityDevice $securityDevice)
+    {
         abort_if(Gate::denies('securitydevice_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $securitydevice->update($request->all());
+        $securityDevice->update($request->all());
         // syncs
-        // $securitydevice->roles()->sync($request->input('roles', []));
+        // $securityDevice->roles()->sync($request->input('roles', []));
 
         return response()->json();
     }
 
-    public function destroy(SecurityDevice $securitydevice)
+    public function destroy(SecurityDevice $securityDevice)
     {
         abort_if(Gate::denies('securitydevice_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $securitydevice->delete();
+        $securityDevice->delete();
 
         return response()->json();
     }
@@ -71,6 +66,4 @@ class SecurityDeviceController extends Controller
 
         return response(null, Response::HTTP_NO_CONTENT);
     }
-
 }
-

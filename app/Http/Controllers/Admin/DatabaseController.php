@@ -9,6 +9,7 @@ use App\Http\Requests\MassDestroyDatabaseRequest;
 use App\Http\Requests\StoreDatabaseRequest;
 use App\Http\Requests\UpdateDatabaseRequest;
 use App\Information;
+use App\LogicalServer;
 use App\MApplication;
 use App\Services\CartographerService;
 use Gate;
@@ -23,7 +24,8 @@ class DatabaseController extends Controller
      *
      * @return void
      */
-    public function __construct(CartographerService $cartographerService) {
+    public function __construct(CartographerService $cartographerService)
+    {
         $this->cartographerService = $cartographerService;
     }
 
@@ -44,6 +46,7 @@ class DatabaseController extends Controller
         $entity_resps = Entity::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
         $informations = Information::all()->sortBy('name')->pluck('name', 'id');
         $applications = MApplication::with('cartographers')->get();
+        $logical_servers = LogicalServer::all()->sortBy('name')->pluck('name', 'id');
         // Filtre sur les cartographes si nécessaire
         $applications = $this->cartographerService->filterOnCartographers($applications);
         // lists
@@ -58,6 +61,7 @@ class DatabaseController extends Controller
                 'entity_resps',
                 'informations',
                 'applications',
+                'logical_servers',
                 'type_list',
                 'external_list',
                 'responsible_list'
@@ -70,7 +74,8 @@ class DatabaseController extends Controller
         $database = Database::create($request->all());
         $database->entities()->sync($request->input('entities', []));
         $database->informations()->sync($request->input('informations', []));
-        $database->databasesMApplications()->sync($request->input('applications', []));
+        $database->applications()->sync($request->input('applications', []));
+        $database->logicalServers()->sync($request->input('logical_servers', []));
 
         return redirect()->route('admin.databases.index');
     }
@@ -83,6 +88,7 @@ class DatabaseController extends Controller
         $entity_resps = Entity::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
         $informations = Information::all()->sortBy('name')->pluck('name', 'id');
         $applications = MApplication::with('cartographers')->get();
+        $logical_servers = LogicalServer::all()->sortBy('name')->pluck('name', 'id');
         // Filtre sur les cartographes si nécessaire
         $applications = $this->cartographerService->filterOnCartographers($applications);
         // lists
@@ -90,7 +96,7 @@ class DatabaseController extends Controller
         $external_list = Database::select('external')->where('external', '<>', null)->distinct()->orderBy('external')->pluck('external');
         $responsible_list = Database::select('responsible')->where('responsible', '<>', null)->distinct()->orderBy('responsible')->pluck('responsible');
 
-        $database->load('entities', 'entity_resp', 'informations', 'databasesMApplications');
+        $database->load('entities', 'entity_resp', 'informations', 'applications');
 
         return view(
             'admin.databases.edit',
@@ -99,6 +105,7 @@ class DatabaseController extends Controller
                 'entity_resps',
                 'informations',
                 'applications',
+                'logical_servers',
                 'database',
                 'type_list',
                 'external_list',
@@ -112,7 +119,8 @@ class DatabaseController extends Controller
         $database->update($request->all());
         $database->entities()->sync($request->input('entities', []));
         $database->informations()->sync($request->input('informations', []));
-        $database->databasesMApplications()->sync($request->input('applications', []));
+        $database->applications()->sync($request->input('applications', []));
+        $database->logicalServers()->sync($request->input('logical_servers', []));
 
         return redirect()->route('admin.databases.index');
     }
@@ -121,7 +129,7 @@ class DatabaseController extends Controller
     {
         abort_if(Gate::denies('database_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $database->load('entities', 'entity_resp', 'informations', 'databaseSourceFluxes', 'databaseDestFluxes', 'databasesMApplications');
+        $database->load('entities', 'entity_resp', 'informations', 'databaseSourceFluxes', 'databaseDestFluxes', 'applications');
 
         return view('admin.databases.show', compact('database'));
     }

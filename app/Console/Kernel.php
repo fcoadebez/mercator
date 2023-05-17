@@ -15,6 +15,8 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Commands\Cleanup::class,
         Commands\CertificateExpiracy::class,
+        Commands\CVESearch::class,
+        Commands\CPEImport::class,
     ];
 
     /**
@@ -28,6 +30,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('mercator:cleanup')->daily();
         $schedule->command('mercator:certificate-expiracy')->daily();
+        $schedule->command('mercator:cve-search')->daily();
     }
 
     /**

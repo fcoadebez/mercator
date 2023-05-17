@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MassDestroyWorkstationRequest;
 use App\Http\Requests\StoreWorkstationRequest;
 use App\Http\Requests\UpdateWorkstationRequest;
+use App\MApplication;
 use App\Site;
 use App\Workstation;
 use Gate;
@@ -18,7 +19,7 @@ class WorkstationController extends Controller
     {
         abort_if(Gate::denies('workstation_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $workstations = Workstation::all()->sortBy('name');
+        $workstations = Workstation::with('site', 'building')->orderBy('name')->get();
 
         return view('admin.workstations.index', compact('workstations'));
     }
@@ -28,15 +29,36 @@ class WorkstationController extends Controller
         abort_if(Gate::denies('workstation_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $sites = Site::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
-
         $buildings = Building::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
 
-        return view('admin.workstations.create', compact('sites', 'buildings'));
+        $application_list = MApplication::orderBy('name')->pluck('name', 'id');
+
+        $type_list = Workstation::select('type')
+            ->where('type', '<>', null)
+            ->distinct()
+            ->orderBy('type')
+            ->pluck('type');
+        $operating_system_list = Workstation::select('operating_system')
+            ->where('operating_system', '<>', null)
+            ->distinct()
+            ->orderBy('operating_system')
+            ->pluck('operating_system');
+        $cpu_list = Workstation::select('cpu')
+            ->where('cpu', '<>', null)
+            ->distinct()
+            ->orderBy('cpu')
+            ->pluck('cpu');
+
+        return view(
+            'admin.workstations.create',
+            compact('sites', 'buildings', 'type_list', 'operating_system_list', 'cpu_list', 'application_list')
+        );
     }
 
     public function store(StoreWorkstationRequest $request)
     {
-        Workstation::create($request->all());
+        $workstation = Workstation::create($request->all());
+        $workstation->applications()->sync($request->input('applications', []));
 
         return redirect()->route('admin.workstations.index');
     }
@@ -46,17 +68,38 @@ class WorkstationController extends Controller
         abort_if(Gate::denies('workstation_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
         $sites = Site::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
-
         $buildings = Building::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
+
+        $application_list = MApplication::orderBy('name')->pluck('name', 'id');
+
+        $type_list = Workstation::select('type')
+            ->where('type', '<>', null)
+            ->distinct()
+            ->orderBy('type')
+            ->pluck('type');
+        $operating_system_list = Workstation::select('operating_system')
+            ->where('operating_system', '<>', null)
+            ->distinct()
+            ->orderBy('operating_system')
+            ->pluck('operating_system');
+        $cpu_list = Workstation::select('cpu')
+            ->where('cpu', '<>', null)
+            ->distinct()
+            ->orderBy('cpu')
+            ->pluck('cpu');
 
         $workstation->load('site', 'building');
 
-        return view('admin.workstations.edit', compact('sites', 'buildings', 'workstation'));
+        return view(
+            'admin.workstations.edit',
+            compact('sites', 'buildings', 'workstation', 'type_list', 'operating_system_list', 'cpu_list', 'application_list')
+        );
     }
 
     public function update(UpdateWorkstationRequest $request, Workstation $workstation)
     {
         $workstation->update($request->all());
+        $workstation->applications()->sync($request->input('applications', []));
 
         return redirect()->route('admin.workstations.index');
     }

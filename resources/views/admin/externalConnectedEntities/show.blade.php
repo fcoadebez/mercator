@@ -37,17 +37,25 @@
                         <td>
                             {{ $externalConnectedEntity->name }}
                         </td>
-                    </tr>
-                    <tr>
-                        <th>
-                            {{ trans('cruds.externalConnectedEntity.fields.responsible_sec') }}
+                        <th width="10%">
+                            {{ trans('cruds.externalConnectedEntity.fields.type') }}
                         </th>
                         <td>
-                            {{ $externalConnectedEntity->responsible_sec }}
+                            {{ $externalConnectedEntity->type }}
                         </td>
                     </tr>
                     <tr>
                         <th>
+                            {{ trans('cruds.externalConnectedEntity.fields.entity') }}
+                        </th>
+                        <td>
+                            @if ($externalConnectedEntity->entity!=null)
+                                <a href="{{ route('admin.entities.show', $externalConnectedEntity->entity->id) }}">
+                                    {{ $externalConnectedEntity->entity->name }}
+                                </a>
+                            @endif
+                        </td>
+                        <th width="10%">
                             {{ trans('cruds.externalConnectedEntity.fields.contacts') }}
                         </th>
                         <td>
@@ -56,12 +64,36 @@
                     </tr>
                     <tr>
                         <th>
-                            {{ trans('cruds.externalConnectedEntity.fields.connected_networks') }}
+                            {{ trans('cruds.externalConnectedEntity.fields.description') }}
+                        </th>
+                        <td colspan='3'>
+                            {!! $externalConnectedEntity->description !!}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            {{ trans('cruds.externalConnectedEntity.fields.network') }}
+                        </th>
+                        <td colspan='3'>
+                            @if ($externalConnectedEntity->network!=null)
+                                <a href="{{ route('admin.networks.show', $externalConnectedEntity->network->id) }}">
+                                    {{ $externalConnectedEntity->network->name }}
+                                </a>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            {{ trans('cruds.externalConnectedEntity.fields.src') }}
                         </th>
                         <td>
-                            @foreach($externalConnectedEntity->connected_networks as $key => $connected_networks)
-                                <span class="label label-info">{{ $connected_networks->name }}</span>
-                            @endforeach
+                            {{ $externalConnectedEntity->src }}
+                        </td>
+                        <th>
+                            {{ trans('cruds.externalConnectedEntity.fields.dest') }}
+                        </th>
+                        <td>
+                            {{ $externalConnectedEntity->dest }}
                         </td>
                     </tr>
                 </tbody>

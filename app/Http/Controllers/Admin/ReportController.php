@@ -2,20 +2,22 @@
 
 namespace App\Http\Controllers\Admin;
 
-// ecosystem
+// GDPR
 use App\Activity;
+// ecosystem
 use App\Actor;
 use App\Annuaire;
-// information system
 use App\ApplicationBlock;
+// information system
 use App\ApplicationModule;
 use App\ApplicationService;
 use App\Bay;
 use App\Building;
 use App\Certificate;
 use App\Database;
-// Applications
+use App\DataProcessing;
 use App\DhcpServer;
+// Applications
 use App\Dnsserver;
 use App\DomaineAd;
 use App\Entity;
@@ -26,19 +28,20 @@ use App\ForestAd;
 use App\Gateway;
 use App\Http\Controllers\Controller;
 use App\Information;
-// Logique
 use App\LogicalServer;
 use App\MacroProcessus;
+// Logique
 use App\MApplication;
 use App\Network;
 use App\NetworkSwitch;
 use App\Operation;
 use App\Peripheral;
 use App\Phone;
+use App\PhysicalLink;
 use App\PhysicalRouter;
 use App\PhysicalSecurityDevice;
-use App\PhysicalServer;
 // Physique
+use App\PhysicalServer;
 use App\PhysicalSwitch;
 use App\Process;
 use App\Relation;
@@ -52,24 +55,71 @@ use App\Vlan;
 use App\WifiTerminal;
 use App\Workstation;
 use App\ZoneAdmin;
-
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
-use Carbon\Carbon;
-
 // PhpOffice
 // see : https://phpspreadsheet.readthedocs.io/en/latest/topics/recipes/
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpWord\Element\Section;
 
 class ReportController extends Controller
 {
-    public function ecosystem()
-    {
-        $entities = Entity::All()->sortBy('name');
-        $relations = Relation::All()->sortBy('name');
+    public const ALLOWED_PERIMETERS = ['All','Internes','Externes'];
+    public const SANITIZED_PERIMETER = 'All';
 
+    public function ecosystem(Request $request)
+    {
+        $perimeter = in_array($request->perimeter, $this::ALLOWED_PERIMETERS) ?
+                   $request->perimeter : $this::SANITIZED_PERIMETER;
+        $typefilter = $request->entity_type ??= 'All';
+
+        $entitiesGroups = Entity::All()->groupBy('entity_type');
+        $entities = collect([]);
+        $entityTypes = collect([]);
+        $isTypeExists = false; /* sanitize entity_type: si type inconnu pas d'entités*/
+        foreach ($entitiesGroups as $entity_type => $entOfGroup) {
+            $entities = $entities->concat($entOfGroup);
+            if ($entity_type !== null) {
+                $isTypeExists = $isTypeExists || ($entity_type === $typefilter);
+                $entityTypes->push($entity_type);
+            }
+        }
+
+        $has_filter = false;
+        if ($typefilter !== 'All') {
+            $has_filter = true;
+            $entities = $isTypeExists ? $entitiesGroups[$typefilter] : collect([]);
+        }
+
+        if ($perimeter !== 'All') {
+            $has_filter = true;
+            $entities = $entities
+                ->filter(function ($item) use ($perimeter) {
+                    return $perimeter === 'Externes' ?
+                                       $item->is_external : ! $item->is_external;
+                });
+        }
+
+        $relations = Relation::All()->sortBy('name');
+        if ($has_filter) {
+            /**
+             * Le "group by" semble résoudre les entités on doit travailler avec les ids ..
+             */
+            $ids = $entities->map(function ($item) {
+                return $item->id;
+            });
+            $relations = $relations
+                ->filter(function ($item) use ($ids) {
+                    return $ids->contains($item->source_id) &&
+                        $ids->contains($item->destination_id);
+                });
+        }
+
+        $request->session()->put('perimeter', $perimeter);
+        $request->session()->put('entity_type', $typefilter);
         return view('admin/reports/ecosystem')
+            ->with('entityTypes', $entityTypes)
             ->with('entities', $entities)
             ->with('relations', $relations);
     }
@@ -153,7 +203,7 @@ class ReportController extends Controller
             // TODO : improve me
             $operations = Operation::All()->sortBy('name')
                 ->filter(function ($item) use ($activities) {
-                    foreach ($item->operationsActivities as $o) {
+                    foreach ($item->activities as $o) {
                         foreach ($activities as $activity) {
                             if ($o->id === $activity->id) {
                                 return true;
@@ -368,12 +418,11 @@ class ReportController extends Controller
             ->with('applicationModules', $applicationModules)
             ->with('databases', $databases)
             ->with('fluxes', $fluxes)
-            ;
+        ;
     }
 
     public function applicationFlows(Request $request)
     {
-
         // Blocks
         if ($request->applicationBlocks === null) {
             $applicationBlocks = [];
@@ -401,11 +450,10 @@ class ReportController extends Controller
         }
 
         // Get assets
-        $application_ids =
-            DB::table('m_applications')
-                ->whereIn('application_block_id', $applicationBlocks)
-                ->orWhereIn('id', $applications)
-                ->pluck('id');
+        $application_ids = DB::table('m_applications')
+            ->whereIn('application_block_id', $applicationBlocks)
+            ->orWhereIn('id', $applications)
+            ->pluck('id');
 
         $applicationservice_ids = DB::table('m_applications')
             ->join('application_service_m_application', 'm_applications.id', '=', 'application_service_m_application.m_application_id')
@@ -533,7 +581,7 @@ class ReportController extends Controller
             ->with('applicationModules', $applicationModules)
             ->with('databases', $databases)
             ->with('flows', $flows)
-            ;
+        ;
     }
 
     public function logicalInfrastructure(Request $request)
@@ -561,6 +609,11 @@ class ReportController extends Controller
                 $subnetwork = $request->session()->get('subnetwork');
             }
         }
+        if ($request->has('show_ip')) {
+            $request->session()->put('show_ip', true);
+        } else {
+            $request->session()->put('show_ip', null);
+        }
 
         $all_networks = Network::All()->sortBy('name')->pluck('name', 'id');
         if ($network !== null) {
@@ -569,10 +622,8 @@ class ReportController extends Controller
 
             $networks = Network::All()->sortBy('name')->where('id', '=', $network);
 
-            $externalConnectedEntities = ExternalConnectedEntity::
-                join('external_connected_entity_network', 'external_connected_entities.id', '=', 'external_connected_entity_network.external_connected_entity_id')
-                    ->where('external_connected_entity_network.network_id', '=', $network)
-                    ->orderBy('name')->get();
+            $externalConnectedEntities = ExternalConnectedEntity::where('network_id', '=', $network)
+                ->orderBy('name')->get();
 
             if ($subnetwork !== null) {
                 $subnetworks = Subnetwork::All()->sortBy('name')
@@ -740,7 +791,6 @@ class ReportController extends Controller
 
             $all_buildings = Building::All()->sortBy('name')
                 ->where('site_id', '=', $site)->pluck('name', 'id');
-
             if ($building === null) {
                 $buildings = Building::All()->sortBy('name')->where('site_id', '=', $site);
             } else {
@@ -963,7 +1013,482 @@ class ReportController extends Controller
             ->with('physicalRouters', $physicalRouters)
             ->with('wifiTerminals', $wifiTerminals)
             ->with('physicalSecurityDevices', $physicalSecurityDevices)
-            ;
+        ;
+    }
+
+    public function networkInfrastructure(Request $request)
+    {
+        if ($request->site === null) {
+            $request->session()->put('site', null);
+            $site = null;
+            $request->session()->put('building', null);
+            $building = null;
+        } else {
+            if ($request->site !== null) {
+                $site = intval($request->site);
+                $request->session()->put('site', $site);
+            } else {
+                $site = $request->session()->get('site');
+            }
+
+            if ($request->building === null) {
+                $request->session()->put('building', null);
+                $building = null;
+            } elseif ($request->building !== null) {
+                $building = intval($request->building);
+                $request->session()->put('building', $building);
+            } else {
+                $building = $request->session()->get('building');
+            }
+        }
+
+        $all_sites = Site::All()->sortBy('name')->pluck('name', 'id');
+
+        if ($site !== null) {
+            $sites = Site::All()->sortBy('name')->where('id', '=', $site);
+
+            $all_buildings = Building::All()->sortBy('name')
+                ->where('site_id', '=', $site)->pluck('name', 'id');
+
+            if ($building === null) {
+                $buildings = Building::All()->sortBy('name')->where('site_id', '=', $site);
+            } else {
+                $buildings = Building::All()->sortBy('name')->where('id', '=', $building);
+            }
+
+            // TODO: improve me
+            $bays = Bay::All()->sortBy('name')
+                ->filter(function ($item) use ($buildings) {
+                    foreach ($buildings as $building) {
+                        if ($item->room_id === $building->id) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+            $physicalServers = PhysicalServer::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings, $bays) {
+                    if (($buildings === null) && ($item->site_id === $site)) {
+                        return true;
+                    }
+                    if ($item->bay_id === null) {
+                        foreach ($buildings as $building) {
+                            if ($item->building_id === $building->id) {
+                                return true;
+                            }
+                        }
+                    } else {
+                        foreach ($bays as $bay) {
+                            if ($item->bay_id === $bay->id) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+
+            $workstations = Workstation::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings) {
+                    if (($item->building_id === null) && ($item->site_id === $site)) {
+                        return true;
+                    }
+                    foreach ($buildings as $building) {
+                        if ($item->building_id === $building->id) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+            $storageDevices = StorageDevice::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings, $bays) {
+                    if (($item->bay_id === null) &&
+                        ($item->building_id === null) &&
+                        ($item->site_id === $site)) {
+                        return true;
+                    }
+                    if ($item->bay_id === null) {
+                        foreach ($buildings as $building) {
+                            if ($item->building_id === $building->id) {
+                                return true;
+                            }
+                        }
+                    } else {
+                        foreach ($bays as $bay) {
+                            if ($item->bay_id === $bay->id) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+
+            $physicalSwitches = PhysicalSwitch::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings, $bays) {
+                    if (($item->bay_id === null) &&
+                        ($item->building_id === null) &&
+                        ($item->site_id === $site)) {
+                        return true;
+                    }
+                    if ($item->bay_id === null) {
+                        foreach ($buildings as $building) {
+                            if ($item->building_id === $building->id) {
+                                return true;
+                            }
+                        }
+                    } else {
+                        foreach ($bays as $bay) {
+                            if ($item->bay_id === $bay->id) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+
+            $peripherals = Peripheral::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings, $bays) {
+                    if (($item->bay_id === null) &&
+                        ($item->building_id === null) &&
+                        ($item->site_id === $site)) {
+                        return true;
+                    }
+                    if ($item->bay_id === null) {
+                        foreach ($buildings as $building) {
+                            if ($item->building_id === $building->id) {
+                                return true;
+                            }
+                        }
+                    } else {
+                        foreach ($bays as $bay) {
+                            if ($item->bay_id === $bay->id) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+
+            $phones = Phone::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings) {
+                    if (($item->building_id === null) && ($item->site_id === $site)) {
+                        return true;
+                    }
+                    foreach ($buildings as $building) {
+                        if ($item->building_id === $building->id) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+            $physicalRouters = PhysicalRouter::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings, $bays) {
+                    if (($item->bay_id === null) &&
+                        ($item->building_id === null) &&
+                        ($item->site_id === $site)) {
+                        return true;
+                    }
+                    if ($item->bay_id === null) {
+                        foreach ($buildings as $building) {
+                            if ($item->building_id === $building->id) {
+                                return true;
+                            }
+                        }
+                    } else {
+                        foreach ($bays as $bay) {
+                            if ($item->bay_id === $bay->id) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+
+            $wifiTerminals = WifiTerminal::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings) {
+                    if (($item->building_id === null) && ($item->site_id === $site)) {
+                        return true;
+                    }
+                    foreach ($buildings as $building) {
+                        if ($item->building_id === $building->id) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+            $physicalSecurityDevices = PhysicalSecurityDevice::All()->sortBy('name')
+                ->filter(function ($item) use ($site, $buildings, $bays) {
+                    if (($item->bay_id === null) &&
+                        ($item->building_id === null) &&
+                        ($item->site_id === $site)) {
+                        return true;
+                    }
+                    if ($item->bay_id === null) {
+                        foreach ($buildings as $building) {
+                            if ($item->building_id === $building->id) {
+                                return true;
+                            }
+                        }
+                    } else {
+                        foreach ($bays as $bay) {
+                            if ($item->bay_id === $bay->id) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+
+            // Filter physicalLinks on selected objects
+            $physicalLinks = PhysicalLink::All()->sortBy('name')
+                ->filter(function ($item) use (
+                    $physicalRouters,
+                    $physicalServers,
+                    $workstations,
+                    $storageDevices,
+                    $physicalSwitches,
+                    $peripherals,
+                    $wifiTerminals,
+                    $phones
+                ) {
+                    // Routers
+                    if ($item->physical_router_src_id !== null) {
+                        $found = false;
+                        foreach ($physicalRouters as $router) {
+                            if ($item->physical_router_src_id === $router->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->physical_router_dest_id !== null) {
+                        $found = false;
+                        foreach ($physicalRouters as $router) {
+                            if ($item->physical_router_dest_id === $router->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Switches
+                    if ($item->physical_switch_src_id !== null) {
+                        $found = false;
+                        foreach ($physicalSwitches as $physicalSwitch) {
+                            if ($item->physical_switch_src_id === $physicalSwitch->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->physical_switch_dest_id !== null) {
+                        $found = false;
+                        foreach ($physicalSwitches as $physicalSwitch) {
+                            if ($item->physical_switch_dest_id === $physicalSwitch->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Servers
+                    if ($item->physical_server_src_id !== null) {
+                        $found = false;
+                        foreach ($physicalServers as $server) {
+                            if ($item->physical_server_src_id === $server->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->physical_server_dest_id !== null) {
+                        $found = false;
+                        foreach ($physicalServers as $server) {
+                            if ($item->physical_server_dest_id === $server->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Workstations
+                    if ($item->workstation_src_id !== null) {
+                        $found = false;
+                        foreach ($workstations as $workstation) {
+                            if ($item->workstation_src_id === $workstation->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->workstation_dest_id !== null) {
+                        $found = false;
+                        foreach ($workstations as $workstation) {
+                            if ($item->workstation_dest_id === $workstation->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Peripheral
+                    if ($item->peripheral_src_id !== null) {
+                        $found = false;
+                        foreach ($peripherals as $peripheral) {
+                            if ($item->peripheral_src_id === $peripheral->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->peripheral_dest_id !== null) {
+                        $found = false;
+                        foreach ($peripherals as $server) {
+                            if ($item->peripheral_dest_id === $peripheral->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Storage
+                    if ($item->storage_device_src_id !== null) {
+                        $found = false;
+                        foreach ($storageDevices as $storageDevice) {
+                            if ($item->storage_device_src_id === $storageDevice->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->storage_device_dest_id !== null) {
+                        $found = false;
+                        foreach ($storageDevices as $storageDevice) {
+                            if ($item->storage_device_dest_id === $storageDevice->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Wifi
+                    if ($item->wifi_terminal_src_id !== null) {
+                        $found = false;
+                        foreach ($wifiTerminals as $wifiTerminal) {
+                            if ($item->wifi_terminal_src_id === $wifiTerminal->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->wifi_terminal_dest_id !== null) {
+                        $found = false;
+                        foreach ($wifiTerminals as $wifiTerminal) {
+                            if ($item->wifi_terminal_dest_id === $wifiTerminal->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    // Phones
+                    if ($item->phone_src_id !== null) {
+                        $found = false;
+                        foreach ($phones as $phone) {
+                            if ($item->phone_src_id === $phone->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    if ($item->phone_dest_id !== null) {
+                        $found = false;
+                        foreach ($phones as $phone) {
+                            if ($item->phone_dest_id === $phone->id) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (! $found) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+        } else {
+            $sites = Site::All()->sortBy('name');
+            $buildings = Building::All()->sortBy('name');
+            $all_buildings = null;
+            $bays = Bay::All()->sortBy('name');
+            $physicalServers = PhysicalServer::All()->sortBy('name');
+            $workstations = Workstation::All()->sortBy('name');
+            $storageDevices = StorageDevice::All()->sortBy('name');
+            $peripherals = Peripheral::All()->sortBy('name');
+            $phones = Phone::All()->sortBy('name');
+            $physicalSwitches = PhysicalSwitch::All()->sortBy('name');
+            $physicalRouters = PhysicalRouter::All()->sortBy('name');
+            $wifiTerminals = WifiTerminal::All()->sortBy('name');
+            $physicalSecurityDevices = PhysicalSecurityDevice::All()->sortBy('name');
+            $physicalLinks = PhysicalLink::All()->sortBy('name');
+        }
+
+        return view('admin/reports/network_infrastructure')
+            ->with('all_sites', $all_sites)
+            ->with('sites', $sites)
+            ->with('all_buildings', $all_buildings)
+            ->with('buildings', $buildings)
+            ->with('bays', $bays)
+            ->with('physicalServers', $physicalServers)
+            ->with('workstations', $workstations)
+            ->with('storageDevices', $storageDevices)
+            ->with('peripherals', $peripherals)
+            ->with('phones', $phones)
+            ->with('physicalSwitches', $physicalSwitches)
+            ->with('physicalRouters', $physicalRouters)
+            ->with('wifiTerminals', $wifiTerminals)
+            ->with('physicalSecurityDevices', $physicalSecurityDevices)
+            ->with('physicalLinks', $physicalLinks);
     }
 
     public function administration()
@@ -989,6 +1514,8 @@ class ReportController extends Controller
         $header = [
             trans('cruds.entity.fields.name'),
             trans('cruds.entity.fields.description'),
+            trans('cruds.entity.fields.is_external'),
+            trans('cruds.entity.fields.entity_type'),
             trans('cruds.entity.fields.security_level'),
             trans('cruds.entity.fields.contact_point'),
             trans('cruds.entity.fields.applications_resp'),
@@ -1003,10 +1530,12 @@ class ReportController extends Controller
 
         // column size
         $sheet->getColumnDimension('A')->setAutoSize(true);
-        $sheet->getColumnDimension('B')->setWidth(60, 'pt');
+        $sheet->getColumnDimension('B')->setAutoSize(true);
         $sheet->getColumnDimension('C')->setAutoSize(true);
         $sheet->getColumnDimension('D')->setAutoSize(true);
         $sheet->getColumnDimension('E')->setAutoSize(true);
+        $sheet->getColumnDimension('F')->setAutoSize(true);
+        $sheet->getColumnDimension('G')->setAutoSize(true);
 
         // converter
         $html = new \PhpOffice\PhpSpreadsheet\Helper\Html();
@@ -1016,8 +1545,10 @@ class ReportController extends Controller
         foreach ($entities as $entity) {
             $sheet->setCellValue("A{$row}", $entity->name);
             $sheet->setCellValue("B{$row}", $html->toRichTextObject($entity->description));
-            $sheet->setCellValue("C{$row}", $html->toRichTextObject($entity->security_level));
-            $sheet->setCellValue("D{$row}", $html->toRichTextObject($entity->contact_point));
+            $sheet->setCellValue("C{$row}", $entity->is_external ? trans('global.yes') : trans('global.no'));
+            $sheet->setCellValue("D{$row}", $entity->entity_type);
+            $sheet->setCellValue("E{$row}", $html->toRichTextObject($entity->security_level));
+            $sheet->setCellValue("F{$row}", $html->toRichTextObject($entity->contact_point));
             $txt = '';
             foreach ($entity->applications as $application) {
                 $txt .= $application->name;
@@ -1025,7 +1556,203 @@ class ReportController extends Controller
                     $txt .= ', ';
                 }
             }
-            $sheet->setCellValue("E{$row}", $txt);
+            $sheet->setCellValue("G{$row}", $txt);
+
+            $row++;
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($path);
+
+        return response()->download($path);
+    }
+
+    public function activityReport()
+    {
+        // get template
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        \PhpOffice\PhpWord\Settings::setOutputEscapingEnabled(true);
+        $phpWord->getSettings()->setHideGrammaticalErrors(true);
+        $phpWord->getSettings()->setHideSpellingErrors(true);
+        $section = $phpWord->addSection();
+
+        // Numbering Style
+        $phpWord->addNumberingStyle(
+            'hNum',
+            ['type' => 'multilevel', 'levels' => [
+                ['pStyle' => 'Heading1', 'format' => 'decimal', 'text' => '%1.'],
+                ['pStyle' => 'Heading2', 'format' => 'decimal', 'text' => '%1.%2.'],
+                ['pStyle' => 'Heading3', 'format' => 'decimal', 'text' => '%1.%2.%3.'],
+            ],
+            ]
+        );
+        $phpWord->addTitleStyle(
+            0,
+            ['size' => 28, 'bold' => true],
+            ['align' => 'center']
+        );
+        $phpWord->addTitleStyle(
+            1,
+            ['size' => 16, 'bold' => true],
+            ['spaceAfter' => 100, 'spaceBefore' => 100, 'numStyle' => 'hNum', 'numLevel' => 0]
+        );
+        $phpWord->addTitleStyle(
+            2,
+            ['size' => 14, 'bold' => true],
+            ['spaceAfter' => 100, 'spaceBefore' => 100, 'numStyle' => 'hNum', 'numLevel' => 1]
+        );
+        $phpWord->addTitleStyle(
+            3,
+            ['size' => 12, 'bold' => true],
+            ['numStyle' => 'hNum', 'numLevel' => 2]
+        );
+
+        // Title
+        $section->addTitle(trans('cruds.dataProcessing.report_title'), 0);
+        $section->addTextBreak(1);
+
+        // TOC
+        $toc = $section->addTOC(['spaceAfter' => 50, 'size' => 10]);
+        $toc->setMinDepth(1);
+        $toc->setMaxDepth(1);
+        $section->addTextBreak(1);
+
+        // page break
+        $section->addPageBreak();
+
+        // Add footer
+        $footer = $section->addFooter();
+        $footer->addPreserveText('{PAGE} / {NUMPAGES}', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+
+        $processes = DataProcessing::orderBy('name')->get();
+        foreach ($processes as $process) {
+            // schema
+            $section->addTitle($process->name, 1);
+            $this->addText($section, $process->description);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.responsible'), 2);
+            $this->addText($section, $process->responsible);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.purpose'), 2);
+            $this->addText($section, $process->purpose);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.categories'), 2);
+            $this->addText($section, $process->categories);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.recipients'), 2);
+            $this->addText($section, $process->recipients);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.transfert'), 2);
+            $this->addText($section, $process->transfert);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.retention'), 2);
+            $this->addText($section, $process->retention);
+
+            $section->addTitle(trans('cruds.dataProcessing.fields.controls'), 2);
+            $this->addText($section, $process->controls);
+        }
+
+        // Finename
+        $filepath = storage_path('app/reports/register-'. Carbon::today()->format('Ymd') .'.docx');
+
+        // Saving the document as Word2007 file.
+        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $objWriter->save($filepath);
+
+        // return
+        return response()->download($filepath);
+    }
+
+    public function activityList()
+    {
+        $path = storage_path('app/register-'. Carbon::today()->format('Ymd') .'.xlsx');
+
+        $register = DataProcessing::All()->sortBy('name');
+
+        $header = [
+            trans('cruds.dataProcessing.fields.name'),
+            trans('cruds.dataProcessing.fields.description'),
+            trans('cruds.dataProcessing.fields.responsible'),
+            trans('cruds.dataProcessing.fields.purpose'),
+            trans('cruds.dataProcessing.fields.categories'),
+            trans('cruds.dataProcessing.fields.recipients'),
+            trans('cruds.dataProcessing.fields.transfert'),
+            trans('cruds.dataProcessing.fields.retention'),
+            trans('cruds.dataProcessing.fields.controls'),
+            trans('cruds.dataProcessing.fields.processes'),
+            trans('cruds.dataProcessing.fields.applications'),
+            trans('cruds.dataProcessing.fields.databases'),
+            trans('cruds.dataProcessing.fields.information'),
+        ];
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([$header], null, 'A1');
+
+        // bold title
+        $sheet->getStyle('1')->getFont()->setBold(true);
+
+        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+        $sheet->getStyle('A:I')->getAlignment()->setWrapText(true);
+
+        // column size
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('C')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('D')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('E')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('F')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('G')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('H')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('I')->setWidth(350, 'pt');
+        $sheet->getColumnDimension('J')->setAutoSize(true);
+
+        $sheet->getColumnDimension('K')->setAutoSize(true);
+        $sheet->getColumnDimension('L')->setAutoSize(true);
+        $sheet->getColumnDimension('M')->setAutoSize(true);
+
+        // converter
+        $html = new \PhpOffice\PhpSpreadsheet\Helper\Html();
+
+        // Populate the Timesheet
+        $row = 2;
+        foreach ($register as $process) {
+            $sheet->setCellValue("A{$row}", $process->name);
+            $sheet->setCellValue("B{$row}", $html->toRichTextObject($process->description));
+            $sheet->setCellValue("C{$row}", $html->toRichTextObject($process->responsible));
+            $sheet->setCellValue("D{$row}", $html->toRichTextObject($process->purpose));
+            $sheet->setCellValue("E{$row}", $html->toRichTextObject($process->categories));
+            $sheet->setCellValue("F{$row}", $html->toRichTextObject($process->recipients));
+            $sheet->setCellValue("G{$row}", $html->toRichTextObject($process->transfert));
+            $sheet->setCellValue("H{$row}", $html->toRichTextObject($process->retention));
+            $sheet->setCellValue("I{$row}", $html->toRichTextObject($process->controls));
+
+            $txt = '';
+            foreach ($process->processes as $p) {
+                $txt .= $p->identifiant;
+                if ($process->processes->last() !== $p) {
+                    $txt .= ', ';
+                }
+            }
+            $sheet->setCellValue("J{$row}", $txt);
+
+            $txt = '';
+            foreach ($process->applications as $application) {
+                $txt .= $application->name;
+                if ($process->applications->last() !== $application) {
+                    $txt .= ', ';
+                }
+            }
+            $sheet->setCellValue("K{$row}", $txt);
+
+            $txt = '';
+            foreach ($process->informations as $information) {
+                $txt .= $information->name;
+                if ($process->informations->last() !== $information) {
+                    $txt .= ', ';
+                }
+            }
+            $sheet->setCellValue("L{$row}", $txt);
 
             $row++;
         }
@@ -1046,8 +1773,8 @@ class ReportController extends Controller
         $header = [
             trans('cruds.application.fields.application_block'),
             trans('cruds.application.fields.name'),
-            trans('cruds.application.fields.version'),
             trans('cruds.application.fields.description'),
+            'CPE',
             trans('cruds.application.fields.entity_resp'),
             trans('cruds.application.fields.entities'),
             trans('cruds.application.fields.responsible'),
@@ -1056,10 +1783,12 @@ class ReportController extends Controller
             trans('cruds.application.fields.type'),
             trans('cruds.application.fields.users'),
             trans('cruds.application.fields.external'),
-            'C',
-            'I',
-            'A',
-            'T',
+            trans('global.confidentiality_short'),
+            trans('global.integrity_short'),
+            trans('global.availability_short'),
+            trans('global.tracability_short'),
+            trans('cruds.application.fields.RTO'),
+            trans('cruds.application.fields.RPO'),
             trans('cruds.application.fields.documentation'),
             trans('cruds.application.fields.logical_servers'),
             trans('cruds.physicalServer.title'),
@@ -1070,10 +1799,10 @@ class ReportController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->fromArray([$header], null, 'A1');
 
-        $sheet->getColumnDimension('A')->setAutoSize(true);
-        $sheet->getColumnDimension('B')->setAutoSize(true);
-        $sheet->getColumnDimension('C')->setAutoSize(true);
-        $sheet->getColumnDimension('D')->setWidth(60, 'pt');
+        $sheet->getColumnDimension('A')->setAutoSize(true);  // block
+        $sheet->getColumnDimension('B')->setAutoSize(true);  // name
+        $sheet->getColumnDimension('C')->setWidth(60, 'pt'); // description
+        $sheet->getColumnDimension('D')->setAutoSize(true);  // CPE
         $sheet->getColumnDimension('E')->setAutoSize(true);
         $sheet->getColumnDimension('F')->setAutoSize(true);
         $sheet->getColumnDimension('G')->setAutoSize(true);
@@ -1091,11 +1820,14 @@ class ReportController extends Controller
         $sheet->getStyle('O')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getColumnDimension('P')->setWidth(10, 'pt');
         $sheet->getStyle('P')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
+        // RTO - RPO
         $sheet->getColumnDimension('Q')->setAutoSize(true);
-        $sheet->getColumnDimension('R')->setWidth(200, 'pt');
-        $sheet->getColumnDimension('S')->setWidth(200, 'pt');
+        $sheet->getColumnDimension('R')->setAutoSize(true);
+
+        $sheet->getColumnDimension('S')->setAutoSize(true);
         $sheet->getColumnDimension('T')->setWidth(200, 'pt');
+        $sheet->getColumnDimension('U')->setWidth(200, 'pt');
+        $sheet->getColumnDimension('V')->setWidth(200, 'pt');
 
         // bold title
         $sheet->getStyle('1')->getFont()->setBold(true);
@@ -1109,8 +1841,8 @@ class ReportController extends Controller
             foreach ($applicationBlock->applications as $application) {
                 $sheet->setCellValue("A{$row}", $applicationBlock->name);
                 $sheet->setCellValue("B{$row}", $application->name);
-                $sheet->setCellValue("C{$row}", $application->version);
-                $sheet->setCellValue("D{$row}", $html->toRichTextObject($application->description));
+                $sheet->setCellValue("C{$row}", $html->toRichTextObject($application->description));
+                $sheet->setCellValue("D{$row}", $application->vendor . ':' . $application->product . ':' . $application->version);
                 $sheet->setCellValue("E{$row}", $application->entity_resp ? $application->entity_resp->name : '');
                 $sheet->setCellValue("F{$row}", $application->entities->implode('name', ', '));
                 $sheet->setCellValue("G{$row}", $application->responsible);
@@ -1132,21 +1864,54 @@ class ReportController extends Controller
                 $sheet->setCellValue("P{$row}", $application->security_need_t);
                 $this->addSecurityNeedColor($sheet, "P{$row}", $application->security_need_t);
 
-                $sheet->setCellValue("Q{$row}", $application->documentation);
-                $sheet->setCellValue("R{$row}", $application->logical_servers->implode('name', ', '));
-                $res=null;
+                $sheet->setCellValue("Q{$row}", $application->rto);
+                $sheet->setCellValue("R{$row}", $application->rpo);
 
-                // TODO: improve me with select, join and unique
-                foreach($application->logical_servers as $logical_server) {
-                    foreach($logical_server->servers as $physical_server) {
-                        if ($res != null)
-                            $res .= ", ";
+                $sheet->setCellValue("S{$row}", $application->documentation);
+                $sheet->setCellValue("T{$row}", $application->logical_servers->implode('name', ', '));
+                $res = null;
+
+                // Done: improve me with select, join and unique
+                /*
+                foreach ($application->logical_servers as $logical_server) {
+                    foreach ($logical_server->servers as $physical_server) {
+                        if ($res !== null) {
+                            $res .= ', ';
+                        }
                         $res .= $physical_server->name;
                     }
                 }
-                
-                $sheet->setCellValue("S{$row}", $res);
-                $sheet->setCellValue("T{$row}", $application->databases->implode('name', ', '));
+                */
+                $res = DB::Table('physical_servers')
+                    ->distinct()
+                    ->select('physical_servers.name')
+                    ->join(
+                        'logical_server_physical_server',
+                        'physical_servers.id',
+                        '=',
+                        'logical_server_physical_server.physical_server_id'
+                    )
+                    ->join(
+                        'logical_servers',
+                        'logical_servers.id',
+                        '=',
+                        'logical_server_physical_server.logical_server_id'
+                    )
+                    ->join(
+                        'logical_server_m_application',
+                        'logical_server_m_application.logical_server_id',
+                        '=',
+                        'logical_servers.id'
+                    )
+                    ->whereNull('logical_servers.deleted_at')
+                    ->whereNull('physical_servers.deleted_at')
+                    ->where('logical_server_m_application.m_application_id', '=', $application->id)
+                    ->orderBy('physical_servers.name')
+                    ->get()
+                    ->implode('name', ', ');
+
+                $sheet->setCellValue("U{$row}", $res);
+                $sheet->setCellValue("V{$row}", $application->databases->implode('name', ', '));
 
                 $row++;
             }
@@ -1158,9 +1923,9 @@ class ReportController extends Controller
         return response()->download($path);
     }
 
-    public function logicalServerResp()
+    public function logicalServers()
     {
-        $path = storage_path('app/logicalServersResp-'. Carbon::today()->format('Ymd') .'.xlsx');
+        $path = storage_path('app/logicalServers-'. Carbon::today()->format('Ymd') .'.xlsx');
 
         $logicalServers = LogicalServer::All()->sortBy('name');
         $logicalServers->load('applications', 'applications.application_block');
@@ -1231,6 +1996,74 @@ class ReportController extends Controller
         return response()->download($path);
     }
 
+    // TODO : i18n
+    public function externalAccess()
+    {
+        $path = storage_path('app/externalAccess-'. Carbon::today()->format('Ymd') .'.xlsx');
+
+        $accesses = ExternalConnectedEntity::All()->sortBy('name');
+        $accesses->load('entity', 'network');
+
+        $header = [
+            trans('cruds.externalConnectedEntity.fields.name'),
+            trans('cruds.externalConnectedEntity.fields.type'),
+            trans('cruds.entity.fields.name'),
+            trans('cruds.entity.fields.description'),
+            trans('cruds.entity.fields.contact_point'),
+            trans('cruds.externalConnectedEntity.fields.description'),
+            trans('cruds.externalConnectedEntity.fields.contacts'),
+            trans('cruds.externalConnectedEntity.fields.network'),
+            trans('cruds.externalConnectedEntity.fields.src'),
+            trans('cruds.externalConnectedEntity.fields.dest'),
+        ];
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([$header], null, 'A1');
+
+        // bold title
+        $sheet->getStyle('1')->getFont()->setBold(true);
+
+        // Widths
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setAutoSize(true);
+        $sheet->getColumnDimension('C')->setAutoSize(true);
+        $sheet->getColumnDimension('D')->setWidth(150, 'pt'); // description
+        $sheet->getColumnDimension('E')->setWidth(150, 'pt'); // contact point
+        $sheet->getColumnDimension('F')->setWidth(150, 'pt'); // reason
+        $sheet->getColumnDimension('G')->setAutoSize(true);
+        $sheet->getColumnDimension('H')->setAutoSize(true);
+        $sheet->getColumnDimension('I')->setAutoSize(true);
+        $sheet->getColumnDimension('J')->setAutoSize(true);
+
+        // converter
+        $html = new \PhpOffice\PhpSpreadsheet\Helper\Html();
+
+        // Populate the Timesheet
+        $row = 2;
+        foreach ($accesses as $access) {
+            $sheet->setCellValue("A{$row}", $access->name);
+            $sheet->setCellValue("B{$row}", $access->type);
+            $sheet->setCellValue("C{$row}", $access->entity ? $access->entity->name : '');
+            $sheet->setCellValue("D{$row}", $access->entity ? $html->toRichTextObject($access->entity->description) : '');
+            $sheet->setCellValue("E{$row}", $access->entity ? $html->toRichTextObject($access->entity->contact_point) : '');
+            $sheet->setCellValue("F{$row}", $html->toRichTextObject($access->description));
+            $sheet->setCellValue("G{$row}", $access->contacts);
+            $sheet->setCellValue("H{$row}", $access->network ? $access->network->name : '');
+            $sheet->setCellValue("I{$row}", $access->src);
+            $sheet->setCellValue("J{$row}", $access->dest);
+
+            $row++;
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($path);
+
+        return response()->download($path);
+
+        return;
+    }
+
     public function logicalServerConfigs()
     {
         $path = storage_path('app/logicalServers-'. Carbon::today()->format('Ymd') .'.xlsx');
@@ -1251,7 +2084,8 @@ class ReportController extends Controller
             trans('cruds.logicalServer.fields.address_ip'),         // J
             trans('cruds.logicalServer.fields.configuration'),      // K
             trans('cruds.logicalServer.fields.applications'),       // L
-            trans('cruds.logicalServer.fields.servers'),            // M
+            trans('cruds.application.fields.application_block'),    // M
+            trans('cruds.logicalServer.fields.servers'),            // N
         ];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -1275,6 +2109,7 @@ class ReportController extends Controller
         $sheet->getColumnDimension('K')->setAutoSize(true);
         $sheet->getColumnDimension('L')->setAutoSize(true);
         $sheet->getColumnDimension('M')->setAutoSize(true);
+        $sheet->getColumnDimension('N')->setAutoSize(true);
 
         // center (CPU, Men, Disk)
         $sheet->getStyle('F')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -1299,7 +2134,9 @@ class ReportController extends Controller
             $sheet->setCellValue("J{$row}", $logicalServer->address_ip);
             $sheet->setCellValue("K{$row}", $html->toRichTextObject($logicalServer->configuration));
             $sheet->setCellValue("L{$row}", $logicalServer->applications->implode('name', ', '));
-            $sheet->setCellValue("M{$row}", $logicalServer->servers->implode('name', ', '));
+            $sheet->setCellValue("M{$row}", $logicalServer->applications->first() !== null ?
+                ($logicalServer->applications->first()->application_block !== null ? $logicalServer->applications->first()->application_block->name : '') : '');
+            $sheet->setCellValue("N{$row}", $logicalServer->servers->implode('name', ', '));
 
             $row++;
         }
@@ -1317,15 +2154,30 @@ class ReportController extends Controller
         // macroprocess - process - application - base de données - information
         $header = [
             trans('cruds.macroProcessus.title'),
-            'C','I','A','T',
+            trans('global.confidentiality_short'),
+            trans('global.integrity_short'),
+            trans('global.availability_short'),
+            trans('global.tracability_short'),
             trans('cruds.process.title'),
-            'C','I','A','T',
+            trans('global.confidentiality_short'),
+            trans('global.integrity_short'),
+            trans('global.availability_short'),
+            trans('global.tracability_short'),
             trans('cruds.application.title'),
-            'C','I','A','T',
+            trans('global.confidentiality_short'),
+            trans('global.integrity_short'),
+            trans('global.availability_short'),
+            trans('global.tracability_short'),
             trans('cruds.database.title'),
-            'C','I','A','T',
+            trans('global.confidentiality_short'),
+            trans('global.integrity_short'),
+            trans('global.availability_short'),
+            trans('global.tracability_short'),
             trans('cruds.information.title'),
-            'C','I','A','T',
+            trans('global.confidentiality_short'),
+            trans('global.integrity_short'),
+            trans('global.availability_short'),
+            trans('global.tracability_short'),
         ];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -1506,17 +2358,104 @@ class ReportController extends Controller
         return response()->download($path);
     }
 
+    public function workstations()
+    {
+        $path = storage_path('app/physicalInventory-'. Carbon::today()->format('Ymd') .'.xlsx');
+
+        $workstations = Workstation::All()->sortBy('name');
+        $workstations->load('applications', 'site', 'building');
+
+        $header = [
+            'Name',
+            'Type',
+            'Description',
+            'OS',
+            'IP',
+            'Applications',
+            'CPU',
+            'RAM',
+            'Disk',
+            'Room',
+            'Building',
+        ];
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([$header], null, 'A1');
+
+        // bold title
+        $sheet->getStyle('1')->getFont()->setBold(true);
+
+        // Widths
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setAutoSize(true);
+        $sheet->getColumnDimension('C')->setWidth(100, 'pt'); // description
+        $sheet->getColumnDimension('D')->setAutoSize(true); // OS
+        $sheet->getColumnDimension('E')->setAutoSize(true); // IP
+        $sheet->getColumnDimension('F')->setWidth(100, 'pt'); // applications
+        $sheet->getColumnDimension('G')->setAutoSize(true);
+        $sheet->getColumnDimension('H')->setAutoSize(true);
+        $sheet->getColumnDimension('I')->setAutoSize(true);
+        $sheet->getColumnDimension('J')->setAutoSize(true);
+        $sheet->getColumnDimension('K')->setAutoSize(true);
+
+        // converter
+        $html = new \PhpOffice\PhpSpreadsheet\Helper\Html();
+
+        // Populate the Timesheet
+        $row = 2;
+
+        // create the sheet
+        foreach ($workstations as $ws) {
+            $sheet->setCellValue("A{$row}", $ws->name);
+            $sheet->setCellValue("B{$row}", $ws->type);
+            $sheet->setCellValue("C{$row}", $html->toRichTextObject($ws->description));
+            $sheet->setCellValue("D{$row}", $ws->operating_system);
+            $sheet->setCellValue("E{$row}", $ws->address_ip);
+
+            $txt = '';
+            foreach ($ws->applications as $application) {
+                $txt .= $application->name;
+                if ($ws->applications->last() !== $application) {
+                    $txt .= ', ';
+                }
+            }
+            $sheet->setCellValue("F{$row}", $txt);
+
+            $sheet->setCellValue("G{$row}", $ws->cpu);
+            $sheet->setCellValue("H{$row}", $ws->memory);
+            $sheet->setCellValue("I{$row}", $ws->disk);
+            $sheet->setCellValue("J{$row}", $ws->site ? $ws->site->name : '');
+            $sheet->setCellValue("K{$row}", $ws->building ? $ws->building->name : '');
+
+            $row++;
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($path);
+
+        return response()->download($path);
+    }
+
     public function zones()
     {
         $subnetworks = Subnetwork::All()->sortBy('zone, address');
 
-        return view('admin/reports/zones')
-            ->with('subnetworks');
+        return view('admin/reports/zones', compact('subnetworks'));
+    }
+
+    private static function addText(Section $section, ?string $value = null)
+    {
+        try {
+            \PhpOffice\PhpWord\Shared\Html::addHtml($section, str_replace('<br>', '<br/>', $value));
+        } catch (\Exception $e) {
+            $section->addText('Invalid text');
+            Log::error('CartographyController - Invalid HTML ' . $value);
+        }
     }
 
     private function addToInventory(array &$inventory, Site $site, ?Building $building = null, ?Bay $bay = null)
     {
-
         // PhysicalServer
         if ($bay !== null) {
             $physicalServers = PhysicalServer::where('bay_id', '=', $bay->id)->orderBy('name')->get();
@@ -1765,7 +2704,6 @@ class ReportController extends Controller
         ?Database $database = null,
         ?Information $information = null
     ) {
-
         // Macroprocessus
         $sheet->setCellValue("A{$row}", $macroprocess->name);
 
@@ -1840,5 +2778,4 @@ class ReportController extends Controller
             }
         }
     }
-
 }

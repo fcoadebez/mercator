@@ -2,7 +2,6 @@
 
 namespace App;
 
-use App\Http\Controllers\Admin\MApplicationLogController;
 use App\Traits\Auditable;
 use Carbon\Carbon;
 use DateTimeInterface;
@@ -85,30 +84,33 @@ class MApplication extends Model
     public $table = 'm_applications';
 
     public static $searchable = [
+        'vendor',
         'name',
         'description',
         'responsible',
-        'functional_referent'
+        'functional_referent',
     ];
 
     protected $dates = [
         'created_at',
         'updated_at',
-        'deleted_at'
+        'deleted_at',
     ];
 
     protected $fillable = [
         'name',
-        'version',
         'description',
+        'vendor',
+        'product',
+        'version',
         'entity_resp_id',
-        'responsible',
         'functional_referent',
         'editor',
         'technology',
         'documentation',
         'type',
         'users',
+        'responsible',
         'security_need_c',
         'security_need_i',
         'security_need_a',
@@ -119,16 +121,18 @@ class MApplication extends Model
         'updated_at',
         'deleted_at',
         'install_date',
-        'update_date'
+        'update_date',
     ];
 
     /**
      * Vérifie que l'utilisateur passé en paramètre est cartographe de cette application.
      *
      * @param User $user
+     *
      * @return bool
      */
-    public function hasCartographer(User $user) {
+    public function hasCartographer(User $user)
+    {
         return $this->cartographers()
             ->where('user_id', $user->id)
             ->exists();
@@ -205,18 +209,18 @@ class MApplication extends Model
         return $this->belongsTo(ApplicationBlock::class, 'application_block_id');
     }
 
+    public function cartographers()
+    {
+        return $this->belongsToMany(User::class, 'cartographer_m_application');
+    }
+
+    public function events()
+    {
+        return $this->hasMany(MApplicationEvent::class, 'm_application_id', 'id');
+    }
+
     protected function serializeDate(DateTimeInterface $date)
     {
         return $date->format('Y-m-d H:i:s');
     }
-
-	public function cartographers()
-	{
-		return $this->belongsToMany(User::class, 'cartographer_m_application');
-	}
-
-	public function events()
-	{
-		return $this->hasMany(MApplicationEvent::class, 'm_application_id', 'id');
-	}
 }

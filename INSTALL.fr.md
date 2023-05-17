@@ -2,12 +2,12 @@
 
 ## Configuration recommandée
 
-- OS : Ubuntu 21.10
+- OS : Ubuntu 22.04 LTS - Server - Small user footprint
 - RAM : 2G
-- Disque : 50G
+- Disque : 10G
 - VCPU 2
 
-## Installation 
+## Installation
 
 Mettre à jour la distribution linux
 
@@ -15,7 +15,11 @@ Mettre à jour la distribution linux
 
 Installer Apache2, GIT, Graphviz et Composer
 
-    sudo apt install apache2 git graphviz composer
+    sudo apt install vim apache2 git graphviz composer
+
+Installer PHP et les librairies
+
+    sudo apt install php-zip php-curl php-mbstring php-dom php-ldap php-soap php-xdebug php-mysql php-gd libapache2-mod-php
 
 ## Project
 
@@ -46,7 +50,7 @@ Installer MySQL
 
     sudo apt install mysql-server
 
-Vérifier que vous utilisez MySQL et pas MariaDB (Mercator ne fonctionne pas avec MariaDB).
+Vérifier que vous utilisez MySQL
 
     sudo mysql --version
 
@@ -71,14 +75,14 @@ Créer un fichier .env dans le répertoire racine du projet :
     cd /var/www/mercator
     cp .env.example .env
 
-Mettre les paramètre de connexion à la base de données :
-
-    vi .env
+Modifier les paramètres de connexion à la base de données dans le fichier .env :
 
     ## .env file
     DB_CONNECTION=mysql
+    # DB_CONNECTION=pgsql
     DB_HOST=127.0.0.1
     DB_PORT=3306
+    # Commenter DB_PORT pour pgsql
     DB_DATABASE=mercator
     DB_USERNAME=mercator_user
     DB_PASSWORD=s3cr3t
@@ -103,6 +107,22 @@ Vider la cache
 Pour importer la base de données de test (facultatif)
 
     sudo mysql mercator < mercator_data.sql
+
+ou (Postgres):
+
+    psql mercator < pg_mercator_data.sql
+
+## Importer la base de données des CPE
+
+Décompresse la base de données
+
+    gzip -d mercator_data.sql.gz
+
+Importer la base de données
+
+    sudo mysql mercator < mercator_cpe.sql
+
+## Démarrage
 
 Démarrer l'application avec php
 
@@ -160,7 +180,8 @@ ajouter cette ligne dans le crontab
 
 ## Configuration de la connexion LDAP
 
-Dans le fichier .env, mettre les paramètres de connexion à votre LDAP en décommentant les lignes :
+Si vous souhaitez connecter Mercator avec un Active Diretory ou un serveur LDAP,
+dans le fichier .env, mettez les paramètres de connexion en décommentant les lignes :
     
     # Plusieurs types possibles : AD, OpenLDAP, FreeIPA, DirectoryServer
     LDAP_TYPE="AD"
@@ -181,7 +202,7 @@ Dans le fichier .env, mettre les paramètres de connexion à votre LDAP en déco
     # Allows you to restrict access to groups
     LDAP_GROUPS="Delivering,Help Desk"
 
-Retrouvez une documentation plus complète sur le paramétrage du LDAP ici.
+Retrouvez une documentation plus complète sur la configuration de [LdapRecord](https://ldaprecord.com/docs/laravel/v2/configuration/#using-an-environment-file-env).
 
 ## Apache
 
@@ -225,7 +246,7 @@ Enfin, redémarrez le service Apache pour activer les modifications :
 
 ### PHP Memory
 
-Si vous générez de gros rapports, vous devrez mettre augmenter la mémoire allouée à PHP dans /etc/php/7.4/apache2/php.ini
+Si vous générez de gros rapports, vous devrez mettre augmenter la mémoire allouée à PHP dans /etc/php/8.x/apache2/php.ini
 
     memory_limit = 512M
 
@@ -234,6 +255,10 @@ Si vous générez de gros rapports, vous devrez mettre augmenter la mémoire all
 Avant de mettre à jour l'application prenez un backup de la base de données et du projet.
 
     mysqldump mercator > mercator_backup.sql
+
+ou (Postgres)
+
+    pg_dump mercator > mercator_backup.sql
 
 Récupérer les sources de GIT
 
@@ -293,6 +318,16 @@ Sauvegarder la base de données
         --no-create-info \
         > backup_mercator_data.sql
 
+ou (Postgres) :
+
+    pg_dump --exclude-table=users \
+      --exclude-table=roles \
+      --exclude-table=permissions \
+      --exclude-table=permission_role \
+      --exclude-table=role_user  \
+      --exclude-table=migrations  \
+      mercator > backup_mercator_data.sql
+
 Then backup database users
 
     sudo mysqldump mercator \
@@ -300,13 +335,27 @@ Then backup database users
         --add-drop-table \
         > backup_mercator_users.sql
 
+ou (Postgres):
+
+    pg_dump --clean \
+      -t users -t roles -t role_user \
+      > backup_mercator_users.sql
+   
 Supprimer la base de données de Mercator
 
     sudo mysql -e "drop database mercator;"
 
+ou (Postgres)
+
+    dropdb mercator
+   
 Créer une nouvelle base de données
 
     sudo mysql -e "CREATE DATABASE mercator CHARACTER SET utf8 COLLATE utf8_general_ci;"
+
+ou (Postgres)
+
+    createdb mercator
 
 Exécuter les migrations
 
@@ -320,8 +369,16 @@ Restaurer les données
 
     sudo mysql mercator < backup_mercator_data.sql
 
+ou (Postgres)
+
+    psql mercator < backup_mercator_data.sql
+
 Restaurer les utilisateurs
 
     sudo mysql mercator < backup_mercator_users.sql
+
+ou (Postgres)
+
+    psql mercator < backup_mercator_users.sql
 
 Tous les problèmes de migration devraient être résolus.

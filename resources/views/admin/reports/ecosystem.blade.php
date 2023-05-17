@@ -15,6 +15,45 @@
                             {{ session('status') }}
                         </div>
                     @endif
+		    
+		    <div class="col-sm-2">
+			<form action="/admin/report/ecosystem">
+			    <table class="table table-bordered table-striped">
+				<tr>
+				    <td>{{ trans('cruds.entity.filters.title.int/ext') }}
+				    </td>
+				    <td>{{ trans('cruds.entity.filters.title.type') }}
+				    </td>
+				</tr>
+				<tr>
+				    <td>
+					<select name="perimeter" onchange="this.form.submit()">
+					    @if (Session::get('perimeter')==null)
+						<option value="All" selected >trans('cruds.entity.filters.all')</option>
+					    @else
+						@foreach ([
+						    "All"      => trans('cruds.entity.filters.all'),
+						    "Externes" => trans('cruds.entity.filters.externes'),
+						    "Internes" => trans('cruds.entity.filters.internes')] as $key=>$choice)
+						    <option value="{{ $key }}" {{ Session::get('perimeter')==$key? "selected" : "" }}
+						    >{{ $choice }}</option>
+					    @endforeach
+					    @endif
+					</select>
+				    </td>
+				    <td>
+					<select name="entity_type" onchange="this.form.submit()">
+						<option value="All" {{ Session::get('entity_type')== null ? "selected" : "" }} >{{ trans('cruds.entity.filters.all_types') }}</option>
+						@foreach ($entityTypes as $type)
+						    <option value="{{ $type }}" {{ Session::get('entity_type')==$type? "selected" : "" }}
+						    >{{ $type }}</option>
+						@endforeach
+					</select>
+				    </td>
+				</tr>
+			    </table>
+			</form>
+		    </div>
                     <div id="graph"></div>
                 </div>
             </div>
@@ -44,6 +83,14 @@
                                 <tr>
                                     <td width="20%"><b>{{ trans('cruds.entity.fields.description') }}</b></td>
                                     <td>{!! $entity->description !!}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>{{ trans('cruds.entity.fields.is_external') }}</b></td>
+                                    <td>{{ $entity->is_external ? trans('global.yes') : trans('global.yes') }}</td>
+                                </tr>
+                                <tr>
+                                    <td><b>{{ trans('cruds.entity.fields.entity_type') }}</b></td>
+                                    <td>{{ $entity->entity_type }}</td>
                                 </tr>
                                 <tr>
                                     <td><b>{{ trans('cruds.entity.fields.security_level') }}</b></td>
@@ -200,22 +247,26 @@
 <!-- https://unpkg.com/d3-graphviz@3.0.5/build/d3-graphviz.js -->
 <script src="/js/d3-graphviz.js"></script>
 
-<script>
+<script id="dot-input">
+ let dotSrc = `
+  digraph  {
+  @can('entity_show')
+  @foreach($entities as $entity)    
+    E{{ $entity->id }} [label=\"{{ $entity->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/entity.png\" href=\"#ENTITY{{$entity->id}}\"]
+  @endforEach
+  @endcan
+  
+  @can('relation_show')
+  @foreach($relations as $relation)
+    E{{ $relation->source_id }} -> E{{ $relation->destination_id }} [label=\"{{ $relation ->name }}\" href=\"#RELATION{{$relation->id}}\"]
+  @endforEach
+  @endcan
+}
+ `;
+ 
 d3.select("#graph").graphviz()
     .addImage("/images/entity.png", "64px", "64px")
-    .renderDot("digraph  {\
-        @can('entity_show')\
-            @foreach($entities as $entity) \
-                E{{ $entity->id }} [label=\"{{ $entity->name }}\" shape=none labelloc=\"b\"  width=1 height=1.1 image=\"/images/entity.png\" href=\"#ENTITY{{$entity->id}}\"]\
-            @endforEach\
-        @endcan\
-        @can('relation_show')\
-            @foreach($relations as $relation) \
-                E{{ $relation->source_id }} -> E{{ $relation->destination_id }} [label=\"{{ $relation ->name }}\" href=\"#RELATION{{$relation->id}}\"]\
-            @endforEach\
-        @endcan\
-        }");
-
+    .renderDot(dotSrc);
 </script>
 @parent
 @endsection

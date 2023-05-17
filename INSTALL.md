@@ -2,9 +2,9 @@
 
 ## Recommended configuration
 
-- OS : Ubuntu 21.10
+- OS : Ubuntu 22.04 LTS - Server - Small user footprint
 - RAM : 2G
-- Disk : 50G
+- Disk : 10G
 - VCPU 2
 
 ## Installation 
@@ -13,11 +13,11 @@ Update the linux distribution
 
     sudo apt update && sudo apt upgrade
 
-Install some PHP libraries
+Install PHP and some PHP libraries
 
-    sudo apt install php-zip php-curl php-mbstring php-dom php-ldap php-soap php-xdebug php-mysql php-gd
+    sudo apt install php-zip php-curl php-mbstring php-dom php-ldap php-soap php-xdebug php-mysql php-gd libapache2-mod-php
 
-Installer Apache2, GIT, Graphviz et Composer
+Install Apache2, GIT, Graphviz et Composer
 
     sudo apt install apache2 git graphviz composer
 
@@ -50,7 +50,7 @@ Install MySQL
 
     sudo apt install mysql-server
 
-Make sure you are using MySQL and not MariaDB (Mercator does not work with MariaDB).
+Make sure you are using MySQL
 
     sudo mysql --version
 
@@ -82,8 +82,10 @@ Put the connection parameters to the database :
 
     ## .env file
     DB_CONNECTION=mysql
+    # DB_CONNECTION=pgsql.env
     DB_HOST=127.0.0.1
     DB_PORT=3306
+    # Comment DB_PORT for pgsql
     DB_DATABASE=mercator
     DB_USERNAME=mercator_user
     DB_PASSWORD=s3cr3t
@@ -109,10 +111,26 @@ To import the test database (optional)
 
     sudo mysql mercator < mercator_data.sql
 
+or (Postgres)
+
+   psql mercator < pg_mercator_data.sql
+   
+## Import the CPE Database
+
+Decompress CPE databse
+
+    gzip -d mercator_data.sql.gz
+
+Import database
+
+    sudo mysql mercator < mercator_cpe.sql
+
+## Start
+
 Start the application with php
 
     php artisan serve
-    
+
 or to access the application there from another server
 
     php artisan serve --host 0.0.0.0 --port 8000
@@ -120,6 +138,21 @@ or to access the application there from another server
 The application is accessible at the URL [http://127.0.0.1:8000]
     user : admin@admin.com
     password : password
+
+## Passport configuration
+
+To set up the JSON API, install Laravel Passport
+
+    php artisan passport:install
+
+Generate the API keys
+
+    php artisan passport:keys
+
+Change the access permissions of the key
+
+    sudo chown www-data:www-data storage/oauth-*.key
+    sudo chmod 600 storage/oauth-*.key
 
 ## Mail configuration
 
@@ -137,7 +170,7 @@ Send a test mail with
 
     echo "Test mail body" | mailx -r "mercator@yourdomain.local" -s "Subject Test" yourname@yourdomain.local
 
-## Sheduler
+## Scheduler
 
 Modify the crontab
 
@@ -174,7 +207,7 @@ Find more complete documentation on LDAP configuration here.
 
 ## Apache
 
-To configure Apache, change the properties of the mercator directory and grant the appropriate permissions to the hive with the following command
+To configure Apache, change the properties of the mercator directory and grant the appropriate permissions to the hive with the following command:
 
     sudo chown -R www-data:www-data /var/www/mercator
     sudo chmod -R 775 /var/www/mercator/storage
@@ -224,6 +257,10 @@ Before updating the application take a backup of the database and the project.
 
     mysqldump mercator > mercator_backup.sql
 
+or (Postgres)
+
+    pg_dump mercator > mercator_backup.sql
+
 Get the sources from GIT
 
     cd /var/www/mercator
@@ -235,7 +272,7 @@ Migrate the database
 
 Update the libraries
 
-    compose update
+    composer update
 
 Empty caches
 
@@ -267,11 +304,11 @@ or to stop on first error
 
     php artisan dusk --stop-on-error --stop-on-failure
 
-## Repair the problems of migraton
+## Repair the problems of migration
 
 Update the libraries
 
-    compose update
+    composer update
 
 Backup the database
 
@@ -287,6 +324,16 @@ Backup the database
         --ignore-table=mercator.migrations \
         > backup_mercator_data.sql
 
+or (Postgres)
+
+    pg_dump --exclude-table=users \
+      --exclude-table=roles \
+      --exclude-table=permissions \
+      --exclude-table=permission_role \
+      --exclude-table=role_user  \
+      --exclude-table=migrations  \
+      mercator > backup_mercator_data.sql
+
 Then backup database users
 
     mysqldump mercator \
@@ -294,6 +341,12 @@ Then backup database users
         --tables users roles role_user
         --add-drop-table \
         > backup_mercator_users.sql
+
+or (Postgres):
+
+    pg_dump --clean \
+      -t users -t roles -t role_user \
+      > backup_mercator_users.sql
 
 Delete the Mercator database
 
@@ -315,9 +368,17 @@ Restore the data and fix errors
 
     mysql mercator < backup_mercator_data.sql
 
+or (Postgres)
+
+    psql mercator < backup_mercator_data.sql
+
 Restore users
 
     mysql mercator < backup_mercator_users.sql
+
+or (Postgres)
+
+    psql mercator < backup_mercator_users.sql
 
 All migration issues should be resolved.
 

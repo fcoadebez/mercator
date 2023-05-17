@@ -1,11 +1,7 @@
 <?php
 
 use App\Http\Controllers\API;
-
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\WerkstattController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -20,12 +16,10 @@ use App\Http\Controllers\API\WerkstattController;
 Route::post('login', [API\AuthController::class, 'login']);
 
 Route::middleware('auth:api')->group(function () {
-
     Route::resource('entities', API\EntityController::class);
     Route::resource('relations', API\RelationController::class);
 
-    // TODO: fix me
-    // Route::resource('macro-processuses', API\MacroProcessusController::class);
+    Route::resource('macro-processuses', API\MacroProcessusController::class);
     Route::resource('processes', API\ProcessController::class);
     Route::resource('operations', API\OperationController::class);
     Route::resource('actors', API\ActorController::class);
@@ -74,10 +68,7 @@ Route::middleware('auth:api')->group(function () {
     Route::resource('lans', API\LanController::class);
     Route::resource('vlans', API\VlanController::class);
 
-    Route::resource('users',API\UserController::class);
+    Route::resource('users', API\UserController::class);
     Route::resource('permission', API\PermissionController::class);
     Route::resource('role', API\RoleController::class);
-
 });
-
-

@@ -2,29 +2,24 @@
 
 namespace App\Http\Controllers\API;
 
-use App\WifiTerminal;
-
+use App\Http\Controllers\Controller;
+use App\Http\Requests\MassDestroyWifiTerminalRequest;
 use App\Http\Requests\StoreWifiTerminalRequest;
 use App\Http\Requests\UpdateWifiTerminalRequest;
-use App\Http\Requests\MassDestroyWifiTerminalRequest;
 use App\Http\Resources\Admin\WifiTerminalResource;
-
+use App\WifiTerminal;
 use Gate;
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-
-use Illuminate\Support\Facades\Log;
 
 class WifiTerminalController extends Controller
 {
     public function index()
     {
-    abort_if(Gate::denies('wifiterminal_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('wifiterminal_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-    $wifiterminals = WifiTerminal::all();
+        $wifiterminals = WifiTerminal::all();
 
-    return response()->json($wifiterminals);
+        return response()->json($wifiterminals);
     }
 
     public function store(StoreWifiTerminalRequest $request)
@@ -38,29 +33,29 @@ class WifiTerminalController extends Controller
         return response()->json($wifiterminal, 201);
     }
 
-    public function show(WifiTerminal $wifiterminal)
+    public function show(WifiTerminal $wifiTerminal)
     {
         abort_if(Gate::denies('wifiterminal_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        return new WifiTerminalResource($wifiterminal);
+        return new WifiTerminalResource($wifiTerminal);
     }
 
-    public function update(UpdateWifiTerminalRequest $request, WifiTerminal $wifiterminal)
-    {     
+    public function update(UpdateWifiTerminalRequest $request, WifiTerminal $wifiTerminal)
+    {
         abort_if(Gate::denies('wifiterminal_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $wifiterminal->update($request->all());
+        $wifiTerminal->update($request->all());
         // syncs
-        // $wifiterminal->roles()->sync($request->input('roles', []));
+        // $wifiTerminal->roles()->sync($request->input('roles', []));
 
         return response()->json();
     }
 
-    public function destroy(WifiTerminal $wifiterminal)
+    public function destroy(WifiTerminal $wifiTerminal)
     {
         abort_if(Gate::denies('wifiterminal_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $wifiterminal->delete();
+        $wifiTerminal->delete();
 
         return response()->json();
     }
@@ -71,6 +66,4 @@ class WifiTerminalController extends Controller
 
         return response(null, Response::HTTP_NO_CONTENT);
     }
-
 }
-

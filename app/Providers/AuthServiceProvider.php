@@ -2,13 +2,13 @@
 
 namespace App\Providers;
 
-use App\Ldap\Scopes\OnlyOrgUnitUser;
 use App\Ldap\LdapUser;
-use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-use Laravel\Passport\Passport;
-use Illuminate\Support\Facades\Gate;
+use App\Ldap\Scopes\OnlyOrgUnitUser;
 use App\MApplication;
 use App\User;
+use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+use Laravel\Passport\Passport;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -29,32 +29,48 @@ class AuthServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->registerPolicies();
+        //if (! app()->runningInConsole()) {
+        //    Passport::routes();
+        //}
 
-        if (!app()->runningInConsole()) 
-        {
-            Passport::routes();
+        // if LDAP activated
+        if (env('LDAP_DOMAIN')) {
+            // LDAP Restrictions on connection
+            LDAPuser::addGlobalScope(new OnlyOrgUnitUser());
+
+            // Token expires after 4 hours
+            Passport::tokensExpireIn(now()->addHours(4));
+            Passport::refreshTokensExpireIn(now()->addHours(4));
+            Passport::personalAccessTokensExpireIn(now()->addHours(4));        
         }
 
-        // LDAP Restrictions on connection
-        LDAPuser::addGlobalScope(new OnlyOrgUnitUser);
-
-        /********************************************************
+        /*
          *  Register one Gate per model for cartographers.
-         * ******************************************************/
+         * */
         /**
          * Before check
          */
+        /*
         Gate::before(function (User $user, $ability) {
-            // Si c'est un admin, on lui autorise toutes les applications
-            if ($user->getIsAdminAttribute() || !config('app.cartographers', false)) {
-                return true;
-            }
+            // check $ability before
+            if (!config('app.cartographers', false))
+                return false;
+            if ($ability==="is-cartographer-m-application")
+                // Si c'est un admin, on lui autorise toutes les applications
+                if ($user->getIsAdminAttribute())
+                    return true;
+                else
+                    return false;
         });
+        */
 
         /**
          * MApplication
          */
         Gate::define('is-cartographer-m-application', function (User $user, MApplication $application) {
+            if (! config('app.cartographers', false)) {
+                return true;
+            }
             return $application->hasCartographer($user);
         });
     }

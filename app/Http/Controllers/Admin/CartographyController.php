@@ -57,6 +57,8 @@ use App\Workstation;
 use App\ZoneAdmin;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+// Log
+use Illuminate\Support\Facades\Log;
 // PhpOffice
 use PhpOffice\PhpWord\Element\Section;
 use PhpOffice\PhpWord\Element\Table;
@@ -139,7 +141,6 @@ class CartographyController extends Controller
         // Add footer
         $footer = $section->addFooter();
         $footer->addPreserveText('{PAGE} / {NUMPAGES}', ['size' => 8], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
-        // $footer->addLink('https://github.com/PHPOffice/PHPWord', 'PHPWord on GitHub');
 
         // ====================
         // ==== Ecosystème ====
@@ -180,6 +181,8 @@ class CartographyController extends Controller
                 $this->addHTMLRow($table, trans('cruds.entity.fields.description'), $entity->description);
                 $this->addHTMLRow($table, trans('cruds.entity.fields.security_level'), $entity->security_level);
                 $this->addHTMLRow($table, trans('cruds.entity.fields.contact_point'), $entity->contact_point);
+                $this->addHTMLRow($table, trans('cruds.entity.fields.is_external'), $entity->is_external ? trans('global.yes') : trans('global.no'));
+                $this->addHTMLRow($table, trans('cruds.entity.fields.entity_type'), $entity->entity_type);
 
                 // Relations
                 $textRun = $this->addTextRunRow($table, trans('cruds.entity.fields.relations'));
@@ -721,7 +724,7 @@ class CartographyController extends Controller
                             $textRun->addText(', ');
                         }
                     }
-                    
+
                     $this->addTextRow($table, trans('cruds.application.fields.install_date'), $application->install_date);
                     $this->addTextRow($table, trans('cruds.application.fields.update_date'), $application->update_date);
 
@@ -746,6 +749,40 @@ class CartographyController extends Controller
                             ' : ' .
                             ([1 => trans('global.low'),2 => trans('global.medium'),3 => trans('global.strong'),4 => trans('global.very_strong')][$application->security_need_t] ?? '') .
                             '</p>'
+                    );
+
+                    // RTO
+                    $textRun = $this->addHTMLRow(
+                        $table,
+                        trans('cruds.application.fields.RTO'),
+                        (intdiv($application->rto, 60 * 24) > 0 ?
+                            (strval(intdiv($application->rto, 60 * 24)) . ' ' .
+                                (intdiv($application->rto, 60 * 24) > 1 ? trans('global.days') : trans('global.day'))) : '') .
+                        (intdiv($application->rto, 60) % 24 > 0 ?
+                            (strval(intdiv($application->rto, 60) % 24)) . ' ' .
+                                (intdiv($application->rto, 60) % 24 > 1 ? trans('global.hours') : trans('global.hour'))
+                            : '') .
+                        ($application->rto % 60 > 0 ?
+                            (strval($application->rto % 60)) . ' ' .
+                                ($application->rto % 60 > 1 ? trans('global.hours') : trans('global.hour'))
+                            : '')
+                    );
+
+                    // RPO
+                    $textRun = $this->addHTMLRow(
+                        $table,
+                        trans('cruds.application.fields.RPO'),
+                        (intdiv($application->rpo, 60 * 24) > 0 ?
+                            (strval(intdiv($application->rpo, 60 * 24)) . ' ' .
+                                (intdiv($application->rpo, 60 * 24) > 1 ? trans('global.days') : trans('global.day'))) : '') .
+                        (intdiv($application->rpo, 60) % 24 > 0 ?
+                            (strval(intdiv($application->rpo, 60) % 24)) . ' ' .
+                                (intdiv($application->rpo, 60) % 24 > 1 ? trans('global.hours') : trans('global.hour'))
+                            : '') .
+                        ($application->rpo % 60 > 0 ?
+                            (strval($application->rpo % 60)) . ' ' .
+                                ($application->rpo % 60 > 1 ? trans('global.hours') : trans('global.hour'))
+                            : '')
                     );
 
                     $this->addTextRow($table, trans('cruds.application.fields.external'), $application->external);
@@ -1222,7 +1259,7 @@ class CartographyController extends Controller
                     $graph .= ' SUBNET' . $subnetwork->id . '->VLAN' . $subnetwork->vlan_id;
                 }
                 if ($subnetwork->network_id !== null) {
-                    $graph .= ' NET' . $subnetwork->network_id . '->SUBNET' . $subnetwork->id;
+                    $graph .= ' NET' . $subnetwork->network->id . '->SUBNET' . $subnetwork->id;
                 }
                 if ($subnetwork->gateway_id !== null) {
                     $graph .= ' SUBNET' . $subnetwork->id . '->GATEWAY' . $subnetwork->gateway_id;
@@ -1231,8 +1268,8 @@ class CartographyController extends Controller
 
             foreach ($externalConnectedEntities as $entity) {
                 $graph .= ' E' . $entity->id . '[label="' . $entity->name . '" shape=none labelloc=b width=1 height=1.8 image="' . public_path('/images/entity.png') . '"]';
-                foreach ($entity->connected_networks as $network) {
-                    $graph .= ' NET' . $network->id . '->E' . $entity->id;
+                if ($entity->network !== null) {
+                    $graph .= ' NET' . $entity->network->id . '->E' . $entity->id;
                 }
             }
 
@@ -1398,6 +1435,23 @@ class CartographyController extends Controller
             }
 
             // =====================================
+
+            if ($networkSwitches->count() > 0) {
+                $section->addTitle(trans('cruds.networkSwitch.title'), 2);
+                $section->addText(trans('cruds.networkSwitch.description'));
+                $section->addTextBreak(1);
+
+                foreach ($networkSwitches as $networkSwitch) {
+                    $section->addBookmark('NETWORK_SWITCH'.$networkSwitch->id);
+                    $table = $this->addTable($section, $networkSwitch->name);
+                    $this->addHTMLRow($table, trans('cruds.networkSwitch.fields.description'), $networkSwitch->description);
+                    $this->addTextRow($table, trans('cruds.networkSwitch.fields.ip'), $networkSwitch->ip);
+
+                    $section->addTextBreak(1);
+                }
+            }
+
+            // =====================================
             if ($routers->count() > 0) {
                 $section->addTitle(trans('cruds.router.title'), 2);
                 $section->addText(trans('cruds.router.description'));
@@ -1409,6 +1463,22 @@ class CartographyController extends Controller
                     $this->addHTMLRow($table, trans('cruds.router.fields.description'), $router->description);
                     $this->addTextRow($table, trans('cruds.router.fields.ip_addresses'), $router->ip_addresses);
                     $this->addHTMLRow($table, trans('cruds.router.fields.rules'), $router->rules);
+
+                    $section->addTextBreak(1);
+                }
+            }
+
+            // =====================================
+
+            if ($securityDevices->count() > 0) {
+                $section->addTitle(trans('cruds.securityDevice.title'), 2);
+                $section->addText(trans('cruds.securityDevice.description'));
+                $section->addTextBreak(1);
+
+                foreach ($securityDevices as $securityDevice) {
+                    $section->addBookmark('SEC_DEV'.$securityDevice->id);
+                    $table = $this->addTable($section, $securityDevice->name);
+                    $this->addHTMLRow($table, trans('cruds.securityDevice.fields.description'), $securityDevice->description);
 
                     $section->addTextBreak(1);
                 }
@@ -1451,16 +1521,21 @@ class CartographyController extends Controller
                     $section->addBookmark('EXTENTITY'.$entity->id);
                     $table = $this->addTable($section, $entity->name);
 
-                    $this->addTextRow($table, trans('cruds.externalConnectedEntity.fields.responsible_sec'), $entity->responsible_sec);
+                    $textRun = $this->addTextRunRow($table, trans('cruds.externalConnectedEntity.fields.entity'));
+                    if ($entity->entity_id !== null) {
+                        $textRun->addLink('ENTITY'.$entity->entity->id, $entity->entity->name, CartographyController::FANCYLINKSTYLE, null, true);
+                    }
+
+                    $this->addTextRow($table, trans('cruds.externalConnectedEntity.fields.type'), $entity->type);
                     $this->addTextRow($table, trans('cruds.externalConnectedEntity.fields.contacts'), $entity->contacts);
 
-                    $textRun = $this->addTextRunRow($table, trans('cruds.externalConnectedEntity.fields.connected_networks'));
-                    foreach ($entity->connected_networks as $network) {
-                        $textRun->addLink('NETWORK'.$network->id, $network->name, CartographyController::FANCYLINKSTYLE, null, true);
-                        if ($entity->connected_networks->last() !== $network) {
-                            $textRun->addText(', ');
-                        }
+                    $textRun = $this->addTextRunRow($table, trans('cruds.externalConnectedEntity.fields.network'));
+                    if ($entity->network !== null) {
+                        $textRun->addLink('NETWORK'.$entity->network->id, $entity->network->name, CartographyController::FANCYLINKSTYLE, null, true);
                     }
+                    $this->addTextRow($table, trans('cruds.externalConnectedEntity.fields.src'), $entity->src);
+                    $this->addTextRow($table, trans('cruds.externalConnectedEntity.fields.dest'), $entity->dest);
+
                     $section->addTextBreak(1);
                 }
             }
@@ -1924,6 +1999,19 @@ class CartographyController extends Controller
                     $table = $this->addTable($section, $workstation->name);
                     $this->addHTMLRow($table, trans('cruds.workstation.fields.type'), $workstation->type);
                     $this->addHTMLRow($table, trans('cruds.workstation.fields.description'), $workstation->description);
+                    $this->addHTMLRow($table, trans('cruds.workstation.fields.operating_system'), $workstation->operating_system);
+                    $this->addHTMLRow($table, trans('cruds.workstation.fields.address_ip'), $workstation->address_ip);
+                    $textRun = $this->addTextRunRow($table, trans('cruds.workstation.fields.applications'));
+                    foreach ($process->applications as $application) {
+                        $textRun->addLink('APPLICATION'.$application->id, $application->name, CartographyController::FANCYLINKSTYLE, CartographyController::NOSPACE, true);
+                        if ($process->applications->last() !== $application) {
+                            $textRun->addText(', ', CartographyController::FANCYRIGHTTABLECELLSTYLE, CartographyController::NOSPACE);
+                        }
+                    }
+
+                    $this->addHTMLRow($table, trans('cruds.workstation.fields.cpu'), $workstation->cpu);
+                    $this->addHTMLRow($table, trans('cruds.workstation.fields.memory'), $workstation->memory);
+                    $this->addHTMLRow($table, trans('cruds.workstation.fields.disk'), $workstation->disk);
 
                     if ($workstation->site !== null) {
                         $textRun = $this->addTextRunRow($table, trans('cruds.workstation.fields.site'));
@@ -2271,7 +2359,11 @@ class CartographyController extends Controller
     {
         $table->addRow();
         $table->addCell(2000)->addText($title, CartographyController::FANCYLEFTTABLECELLSTYLE, CartographyController::NOSPACE);
-        \PhpOffice\PhpWord\Shared\Html::addHtml($table->addCell(6000), str_replace('<br>', '<br/>', $value));
+        try {
+            \PhpOffice\PhpWord\Shared\Html::addHtml($table->addCell(6000), str_replace('<br>', '<br/>', $value));
+        } catch (\Exception $e) {
+            Log::error('CartographyController - Invalid HTML ' . $value);
+        }
     }
 
     private static function addTextRunRow(Table $table, string $title)
@@ -2285,7 +2377,6 @@ class CartographyController extends Controller
     // Generate the image of the graph from a dot notation using GraphViz
     private function generateGraphImage(string $graph)
     {
-
         // Save it to a file
         $dot_path = tempnam('/tmp', 'dot');
         $dot_file = fopen($dot_path, 'w');

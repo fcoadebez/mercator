@@ -26,13 +26,16 @@
                             {{ trans('cruds.externalConnectedEntity.fields.name') }}
                         </th>
                         <th>
-                            {{ trans('cruds.externalConnectedEntity.fields.responsible_sec') }}
+                            {{ trans('cruds.externalConnectedEntity.fields.type') }}
+                        </th>
+                        <th>
+                            {{ trans('cruds.externalConnectedEntity.fields.entity') }}
                         </th>
                         <th>
                             {{ trans('cruds.externalConnectedEntity.fields.contacts') }}
                         </th>
                         <th>
-                            {{ trans('cruds.externalConnectedEntity.fields.connected_networks') }}
+                            {{ trans('cruds.externalConnectedEntity.fields.network') }}
                         </th>                        
                         <th>
                             &nbsp;
@@ -46,18 +49,29 @@
 
                             </td>
                             <td>
+                                <a href="{{ route('admin.external-connected-entities.show', $externalConnectedEntity->id) }}">
                                 {{ $externalConnectedEntity->name ?? '' }}
+                                </a>
                             </td>
                             <td>
-                                {{ $externalConnectedEntity->responsible_sec ?? '' }}
+                                {{ $externalConnectedEntity->type ?? '' }}
                             </td>
+                            <td>
+                                @if ($externalConnectedEntity->entity!=null)
+                                    <a href="{{ route('admin.entities.show', $externalConnectedEntity->entity->id) }}">
+                                        {{ $externalConnectedEntity->entity->name }}
+                                    </a>
+                                @endif
+                            </td>                            
                             <td>
                                 {{ $externalConnectedEntity->contacts }}
                             </td>                            
                             <td>
-                                @foreach($externalConnectedEntity->connected_networks as $key => $connected_networks)
-                                    <span class="label label-info">{{ $connected_networks->name }}</span>
-                                @endforeach
+                                @if($externalConnectedEntity->network!=null)
+                                    <a href="{{ route('admin.networks.show', $externalConnectedEntity->network->id) }}">
+                                        {{ $externalConnectedEntity->network->name }}
+                                    </a>
+                                @endif
                             </td>
                             <td>
                                 @can('external_connected_entity_show')

@@ -2,7 +2,6 @@
 
 use App\Http\Controllers;
 use App\Http\Controllers\Admin;
-use App\Http\Controllers\API;
 
 Route::redirect('/', '/login');
 
@@ -19,11 +18,10 @@ Route::get('/test', function () {
     return view('test');
 });
 
-Auth::routes(['register' => false]);
+Auth::routes();
 
 // Admin
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
-
     // Dashboard
     Route::get('/', [Admin\HomeController::class,'index'])->name('home');
 
@@ -34,6 +32,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     // Users
     Route::resource('users', Admin\UsersController::class);
     Route::delete('users-destroy', [Admin\UsersController::class,'massDestroy'])->name('users.massDestroy');
+
+    // DataProcessing
+    Route::resource('data-processing', Admin\DataProcessingController::class);
+    Route::delete('data-processing-destroy', [Admin\DataProcessingController::class,'massDestroy'])->name('data-processing.massDestroy');
+
+    // SecurityMeasures
+    Route::resource('security-controls', Admin\SecurityControlController::class);
+    Route::delete('security-controls-destroy', [Admin\SecurityControlController::class,'massDestroy'])->name('security-controls.massDestroy');
 
     // Entities
     Route::resource('entities', Admin\EntityController::class);
@@ -198,6 +204,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::resource('physical-security-devices', Admin\PhysicalSecurityDeviceController::class);
     Route::delete('physical-security-devices-destroy', [Admin\PhysicalSecurityDeviceController::class,'massDestroy'])->name('physical-security-devices.massDestroy');
 
+    // Physical Links
+    // TODO : check why it is not working with physical-links as resource name
+    Route::resource('links', Admin\PhysicalLinkController::class);
+    Route::delete('links-destroy', [Admin\PhysicalLinkController::class,'massDestroy'])->name('links.massDestroy');
+
     // WANs
     Route::resource('wans', Admin\WanController::class);
     Route::delete('wans-destroy', [Admin\WanController::class,'massDestroy'])->name('wans.massDestroy');
@@ -228,9 +239,13 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     // Global Search engine !
     Route::get('global-search', [Admin\GlobalSearchController::class,'search'])->name('globalSearch');
 
-    // Configuration page
-    Route::get('configuration', [Admin\ConfigurationController::class,'index'])->name('configuration');
-    Route::put('configuration/save', [Admin\ConfigurationController::class,'save'])->name('configuration.save');
+    // Certificate Configuration page
+    Route::get('config/cert', [Admin\ConfigurationController::class,'getCertConfig'])->name('config.cert');
+    Route::put('config/cert/save', [Admin\ConfigurationController::class,'saveCertConfig'])->name('config.cert.save');
+
+    // CVE Configuration page
+    Route::get('config/cve', [Admin\ConfigurationController::class,'getCVEConfig'])->name('config.cve');
+    Route::put('config/cve/save', [Admin\ConfigurationController::class,'saveCVEConfig'])->name('config.cve.save');
 
     // Views
     Route::get('report/ecosystem', [Admin\ReportController::class,'ecosystem'])->name('report.view.ecosystem');
@@ -240,6 +255,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('report/application_flows', [Admin\ReportController::class,'applicationFlows'])->name('report.view.application-flows');
     Route::get('report/logical_infrastructure', [Admin\ReportController::class,'logicalInfrastructure'])->name('report.view.logical-infrastructure');
     Route::get('report/physical_infrastructure', [Admin\ReportController::class,'physicalInfrastructure'])->name('report.view.physical-infrastructure');
+    Route::get('report/network_infrastructure', [Admin\ReportController::class,'networkInfrastructure'])->name('report.view.network-infrastructure');
+
     // Experimental views
     Route::get('report/zones', [Admin\ReportController::class,'zones'])->name('report.view.zones');
     Route::get('report/explore', [Admin\ExplorerController::class,'explore'])->name('report.explore');
@@ -250,17 +267,35 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('report/maturity3', [Admin\HomeController::class,'maturity3'])->name('report.maturity3');
 
     // Reporting
+    Route::put('report/cartography', [Admin\CartographyController::class, 'cartography'])->name('report.cartography');
     Route::get('report/entities', [Admin\ReportController::class,'entities'])->name('report.entities');
     Route::get('report/applicationsByBlocks', [Admin\ReportController::class,'applicationsByBlocks'])->name('report.applicationsByBlocks');
-    Route::get('report/logicalServerConfigs', [Admin\ReportController::class, 'logicalServerConfigs'])->name('report.logicalServerConfigs');
-    Route::get('report/physicalInventory', [Admin\ReportController::class, 'physicalInventory'])->name('report.physicalInventory');
+    Route::get('report/logicalServers', [Admin\ReportController::class,'logicalServers'])->name('report.logicalServers');
     Route::get('report/securityNeeds', [Admin\ReportController::class, 'securityNeeds'])->name('report.securityNeeds');
-    Route::put('report/cartography', [Admin\CartographyController::class, 'cartography'])->name('report.cartography');
-    Route::get('report/logicalServerResp', [Admin\ReportController::class,'logicalServerResp'])->name('report.logicalServerResp');
+    Route::get('report/logicalServerConfigs', [Admin\ReportController::class, 'logicalServerConfigs'])->name('report.logicalServerConfigs');
+    Route::get('report/externalAccess', [Admin\ReportController::class,'externalAccess'])->name('report.externalAccess');
+    Route::get('report/physicalInventory', [Admin\ReportController::class, 'physicalInventory'])->name('report.physicalInventory');
+    Route::get('report/workstations', [Admin\ReportController::class,'workstations'])->name('report.workstations');
+
+    // GDPR
+    Route::get('report/activityList', [Admin\ReportController::class,'activityList'])->name('report.activityList');
+    Route::get('report/activityReport', [Admin\ReportController::class,'activityReport'])->name('report.activityReport');
+
+    // CPE
+    Route::get('/cpe/search/vendors', [Admin\CPEController::class,'vendors']);
+    Route::get('/cpe/search/products', [Admin\CPEController::class,'products']);
+    Route::get('/cpe/search/versions', [Admin\CPEController::class,'versions']);
 
     // Auditing
     Route::get('audit/maturity', [Admin\AuditController::class,'maturity'])->name('audit.maturity');
     Route::get('audit/changes', [Admin\AuditController::class,'changes'])->name('audit.changes');
+
+    // Documents
+    Route::post('/documents/store', [Admin\DocumentController::class,'store'])->name('documents.store');
+    Route::get('/documents/delete/{id}', [Admin\DocumentController::class,'delete'])->name('documents.delete');
+    Route::get('/documents/show/{id}', [Admin\DocumentController::class,'get'])->name('documents.show');
+    Route::get('/config/documents', [Admin\DocumentController::class,'stats'])->name('config.documents');
+    Route::get('/config/documents/check', [Admin\DocumentController::class,'check'])->name('config.documents.check');
 
     // Reporting
     Route::get('doc/report', function () {
@@ -281,7 +316,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('doc/about', function () {
         return view('doc/about');
     });
-
 });
 
 // Profile

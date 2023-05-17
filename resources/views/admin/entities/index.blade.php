@@ -29,6 +29,9 @@
                             {{ trans('cruds.entity.fields.description') }}
                         </th>
                         <th>
+                            {{ trans('cruds.entity.fields.is_external') }}
+                        </th>
+                        <th>
                             {{ trans('cruds.entity.fields.contact_point') }}
                         </th>
                         <th>
@@ -65,6 +68,9 @@
                             <td>
                                 {!! $entity->description ?? '' !!}
                             </td>
+                            <td>
+                                {!!  $entity->is_external  == null ? '' : trans('global.'.($entity->is_external ? 'yes' : 'no'))  !!}
+                            </td>  
                             <td>
                                 {!! $entity->contact_point  ?? '' !!}
                             </td>                        

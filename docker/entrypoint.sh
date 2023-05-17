@@ -27,5 +27,8 @@ php artisan key:generate
 # vider le cache
 php artisan config:clear
 
+# configurer Passport for Mercator API : https://dbarzin.github.io/mercator/api/
+php artisan passport:install
+
 # start application
 php artisan serve --host=0.0.0.0

@@ -10,27 +10,10 @@
         <form method="POST" action="{{ route("admin.applications.store") }}" enctype="multipart/form-data">
             @csrf
             <div class="row">
-                <div class="col-md-8">
+                <div class="col-md-6">
                     <div class="form-group">
                         <label class="required" for="name">{{ trans('cruds.application.fields.name') }}</label>
-                        <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}" type="text" name="name" id="name" value="{{ old('name', '') }}" required>
-                        @if($errors->has('name'))
-                            <div class="invalid-feedback">
-                                {{ $errors->first('name') }}
-                            </div>
-                        @endif
-                        <span class="help-block">{{ trans('cruds.application.fields.name_helper') }}</span>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="recommended" for="version">{{ trans('cruds.application.fields.version') }}</label>
-                        <input class="form-control {{ $errors->has('version') ? 'is-invalid' : '' }}" type="text" name="version" id="version" value="{{ old('version', '') }}">
-                        @if($errors->has('version'))
-                            <div class="invalid-feedback">
-                                {{ $errors->first('version') }}
-                            </div>
-                        @endif
+                        <input type="text" class="form-control" id="name" name="name" min="0" value="{{ old('name', '') }}">
                         <span class="help-block">{{ trans('cruds.application.fields.name_helper') }}</span>
                     </div>
                 </div>
@@ -45,6 +28,50 @@
                     </div>
                 @endif
                 <span class="help-block">{{ trans('cruds.application.fields.description_helper') }}</span>
+            </div>
+
+            <div class="row">
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="recommended" for="vendor">{{ trans('cruds.application.fields.vendor') }}</label>
+                        <div class="form-group">
+                            <select id="vendor-selector" class="form-control select2-free" name="vendor">
+                                <option>{{ old('vendor', '') }}</option>
+                            </select>
+                            <span class="help-block">{{ trans('cruds.application.fields.vendor_helper') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="recommended" for="product">{{ trans('cruds.application.fields.product') }}</label>
+                        <select id="product-selector" class="form-control select2-free" name="product">
+                            <option>{{ old('product', '') }}</option>
+                        </select>
+                        @if($errors->has('product'))
+                            <div class="invalid-feedback">
+                                {{ $errors->first('product') }}
+                            </div>
+                        @endif
+                        <span class="help-block">{{ trans('cruds.application.fields.product_helper') }}</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="recommended" for="version">{{ trans('cruds.application.fields.version') }}</label>
+                        <select id="version-selector" class="form-control select2-free" name="version">
+                            <option>{{ old('version', '') }}</option>
+                        </select>
+                        @if($errors->has('version'))
+                            <div class="invalid-feedback">
+                                {{ $errors->first('version') }}
+                            </div>
+                        @endif
+                        <span class="help-block">{{ trans('cruds.application.fields.version_helper') }}</span>
+                    </div>
+                </div>
             </div>
 
           <div class="row">
@@ -82,12 +109,9 @@
 
                 <div class="form-group">
                     <label class="recommended" for="responsible">{{ trans('cruds.application.fields.responsible') }}</label>
-                    <select class="form-control select2-free {{ $errors->has('responsible') ? 'is-invalid' : '' }}" name="responsible" id="responsible">
-                        @if (!$responsible_list->contains(old('responsible')))
-                            <option> {{ old('responsible') }}</option>'
-                        @endif
-                        @foreach($responsible_list as $t)
-                            <option {{ old('responsible') == $t ? 'selected' : '' }}>{{$t}}</option>
+                    <select class="form-control select2-free {{ $errors->has('responsible') ? 'is-invalid' : '' }}" name="responsibles[]" id="responsibles" multiple>
+                        @foreach($responsible_list as $resp)
+                            <option {{ str_contains(old('responsible') ,$resp) ? 'selected' : '' }}>{{$resp}}</option>
                         @endforeach
                     </select>
                     @if($errors->has('responsible'))
@@ -249,21 +273,20 @@
           </div>
 
           <div class="row">
-            <div class="col-sm">
-                    <div class="form-group">
+            <div class="col-md-6">
+                 <label
+                    @if (auth()->user()->granularity>=2)
+                    class="recommended"
+                    @endif
+                    for="security_need">{{ trans('cruds.application.fields.security_need') }}</label>
+                   <div class="form-group">
                         <table cellspacing="5" cellpadding="5" border="0" width='100%'>
                             <tr>
-                                <td width='20%'>
-                                    <label
-                                        @if (auth()->user()->granularity>=2)
-                                            class="recommended"
-                                        @endif
-                                        for="security_need">{{ trans('cruds.application.fields.security_need') }}</label>
+                                <td align="right" valign="bottom">
+                                    <label for="security_need">{{ trans("global.confidentiality_short") }}</label>
                                 </td>
-                                <td align="right" width="10">
-                                    <label for="security_need">C</label>
-                                </td>
-                                <td width="120">
+                                <td>
+                                    <span class="help-block">{{ trans("global.confidentiality") }}</span>
                                     <select class="form-control select2 risk {{ $errors->has('security_need_c') ? 'is-invalid' : '' }}" name="security_need_c" id="security_need_c">
                                         <option value="0" {{ old('security_need_c') == 0 ? 'selected' : '' }}>{{ trans('global.none') }}</option>
                                         <option value="1" {{ old('security_need_c') == 1 ? 'selected' : '' }}>{{ trans('global.low') }}</option>
@@ -272,10 +295,11 @@
                                         <option value="4" {{ old('security_need_c') == 4 ? 'selected' : '' }}>{{ trans('global.very_strong') }}</option>
                                     </select>
                                 </td>
-                                <td align="right">
-                                    <label for="security_need">I</label>
+                                <td align="right" valign="bottom">
+                                    <label for="security_need">{{ trans("global.integrity_short") }}</label>
                                 </td>
-                                <td  width="120">
+                                <td>
+                                    <span class="help-block">{{ trans("global.integrity") }}</span>
                                     <select class="form-control select2 risk {{ $errors->has('security_need_i') ? 'is-invalid' : '' }}" name="security_need_i" id="security_need_i">
                                         <option value="0" {{ old('security_need_i') == 0 ? 'selected' : '' }}>{{ trans('global.none') }}</option>
                                         <option value="1" {{ old('security_need_i') == 1 ? 'selected' : '' }}>{{ trans('global.low') }}</option>
@@ -284,10 +308,11 @@
                                         <option value="4" {{ old('security_need_i') == 4 ? 'selected' : '' }}>{{ trans('global.very_strong') }}</option>
                                     </select>
                                 </td>
-                                <td align="right">
-                                    <label for="security_need">D</label>
+                                <td align="right" valign="bottom">
+                                    <label for="security_need">{{ trans("global.availability_short") }}</label>
                                 </td>
-                                <td width="120">
+                                <td>
+                                    <span class="help-block">{{ trans("global.availability") }}</span>
                                     <select class="form-control select2 risk {{ $errors->has('security_need_a') ? 'is-invalid' : '' }}" name="security_need_a" id="security_need_a">
                                         <option value="0" {{ old('security_need_a') == 0 ? 'selected' : '' }}>{{ trans('global.none') }}</option>
                                         <option value="1" {{ old('security_need_a') == 1 ? 'selected' : '' }}>{{ trans('global.low') }}</option>
@@ -296,10 +321,11 @@
                                         <option value="4" {{ old('security_need_a') == 4 ? 'selected' : '' }}>{{ trans('global.very_strong') }}</option>
                                     </select>
                                 </td>
-                                <td align="right">
-                                    <label for="security_need">T</label>
+                                <td align="right" valign="bottom">
+                                    <label for="security_need">{{ trans("global.tracability_short") }}</label>
                                 </td>
-                                <td width="120">
+                                <td>
+                                    <span class="help-block">{{ trans("global.tracability") }}</span>
                                     <select class="form-control select2 risk {{ $errors->has('security_need_t') ? 'is-invalid' : '' }}" name="security_need_t" id="security_need_t">
                                         <option value="0" {{ old('security_need_t') == 0 ? 'selected' : '' }}>{{ trans('global.none') }}</option>
                                         <option value="1" {{ old('security_need_t') == 1 ? 'selected' : '' }}>{{ trans('global.low') }}</option>
@@ -320,6 +346,49 @@
 
             </div>
             <div class="col-sm">
+                <div class="form-group">
+                    <label>{{ trans('cruds.application.fields.RTO') }}</label>
+                    <table>
+                        <tr>
+                            <td>
+                                <span class="help-block">{{ trans('global.days') }}</span>
+                                <input type="number" class="form-control" id="rto_days" name="rto_days" min="0" value="{{ old('rto_days') }}">
+                            </td>
+                            <td>
+                                <span class="help-block">{{ trans('global.hours') }}</span>
+                                <input type="number" class="form-control" id="rto_hours" name="rto_hours" min="0" max="24" value="{{ old('rto_hours') }}">
+                            </td>
+                            <td>
+                                <span class="help-block">{{ trans('global.minutes') }}</span>
+                                <input type="number" class="form-control" id="rto_minutes" name="rto_minutes" min="0" max="60" value="{{ old('rto_minutes') }}">
+                            </td>
+                        </tr>
+                    </table>
+                    <span class="help-block">{{ trans('cruds.application.fields.RTO_helper') }}</span>
+                </div>
+            </div>
+            <div class="col-sm">
+                <div class="form-group">
+                    <label>{{ trans('cruds.application.fields.RPO') }}</label>
+                    <table>
+                        <tr>
+                            <td>
+                                <span class="help-block">{{ trans('global.days') }}</span>
+                                <input type="number" class="form-control" id="rpo" name="rpo_days" min="0" value="{{ old('rpo_days') }}">
+                            </td>
+                            <td>
+                                <span class="help-block">{{ trans('global.hours') }}</span>
+                                <input type="number" class="form-control" id="rpo" name="rpo_hours" min="0" max="24" value="{{ old('rpo_hours') }}">
+                            </td>
+                            <td>
+                                <span class="help-block">{{ trans('global.minutes') }}</span>
+                                <input type="number" class="form-control" id="rpo" name="rpo_minutes" min="0" max="60" value="{{ old('rpo_minutes') }}">
+                            </td>
+                        </tr>
+                    </table>
+                    <span class="help-block">{{ trans('cruds.application.fields.RPO_helper') }}</span>
+                </div>
+
             </div>
         </div>
 
@@ -474,6 +543,103 @@ $(document).ready(function () {
           return m;
       }
     });
+
+
+    // ------------------------------------------------
+    $('#vendor-selector').select2({
+      placeholder: 'Start typing to search',
+      tags: true,
+      ajax: {
+        url: '/admin/cpe/search/vendors',
+        data: function(params) {
+          var query = {
+            part: "a",
+            search: params.term,
+          };
+          return query;
+        },
+        processResults: function(data) {
+          var results = [];
+          if (data.length) {
+            $.each(data, function(id, vendor) {
+              results.push({
+                id: vendor.name,
+                text: vendor.name
+              });
+            });
+          }
+
+          return {
+            results: results
+          };
+        }
+      }
+    });
+
+    // ------------------------------------------------
+    $('#product-selector').select2({
+      placeholder: 'Start typing to search',
+      tags: true,
+      ajax: {
+        url: '/admin/cpe/search/products',
+        data: function(params) {
+          var query = {
+            part: "a",
+            vendor: $("#vendor-selector").val(),
+            search: params.term,
+          };
+          return query;
+        },
+        processResults: function(data) {
+          var results = [];
+          if (data.length) {
+            $.each(data, function(id, product) {
+              results.push({
+                id: product.name,
+                text: product.name
+              });
+            });
+          }
+          return {
+            results: results
+          };
+        }
+      }
+    });
+
+    // ------------------------------------------------
+    $('#version-selector').select2({
+      placeholder: 'Start typing to search',
+      tags: true,
+      ajax: {
+        url: '/admin/cpe/search/versions',
+        data: function(params) {
+          var query = {
+            part: "a",
+            vendor: $("#vendor-selector").val(),
+            product: $("#product-selector").val(),
+            search: params.term,
+          };
+          return query;
+        },
+        processResults: function(data) {
+          var results = [];
+          if (data.length) {
+            $.each(data, function(id, version) {
+              results.push({
+                id: version.name,
+                text: version.name
+              });
+            });
+          }
+          return {
+            results: results
+          };
+        }
+      }
+
+      });
+
 });
 </script>
 @endsection

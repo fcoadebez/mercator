@@ -21,7 +21,8 @@ class ApplicationBlockController extends Controller
      *
      * @return void
      */
-    public function __construct(CartographerService $cartographerService) {
+    public function __construct(CartographerService $cartographerService)
+    {
         $this->cartographerService = $cartographerService;
     }
 
@@ -29,7 +30,8 @@ class ApplicationBlockController extends Controller
     {
         abort_if(Gate::denies('application_block_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $applicationBlocks = ApplicationBlock::all();
+        // $applicationBlocks = ApplicationBlock::all();
+        $applicationBlocks = ApplicationBlock::with('applications')->orderBy('name')->get();
 
         return view('admin.applicationBlocks.index', compact('applicationBlocks'));
     }

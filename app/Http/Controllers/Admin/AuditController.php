@@ -19,7 +19,7 @@ class AuditController extends HomeController
     {
         $levels = $this->computeMaturity();
 
-        $path = storage_path('app/levels.xlsx');
+        $path = storage_path('app/levels-' . Carbon::today()->format('Ymd') . '.xlsx');
 
         $header = [
             'Objet',
@@ -119,7 +119,7 @@ class AuditController extends HomeController
 
         // ============
         // Metier
-	// ============
+        // ============
         $sheet->setCellValue("A{$row}", trans('cruds.menu.metier.title_short'));
         $sheet->getStyle("A{$row}:G{$row}")->getFont()->setBold(true);
         $sheet->getStyle("A{$row}:G{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFAEC7E8');
@@ -135,12 +135,12 @@ class AuditController extends HomeController
         );
 
         // L2
-        $denominator = $levels['macroProcessuses'] + $levels['processes'] + $levels['operations'] + $levels['actors'] + $levels['informations'];
+        $denominator = $levels['macroProcessuses'] + $levels['processes'] + $levels['activities'] + $levels['operations'] + $levels['actors'] + $levels['informations'];
         $sheet->setCellValue("D{$row}", $denominator);
         $sheet->setCellValue(
             "E{$row}",
             $denominator > 0 ?
-            ($levels['macroProcessuses_lvl2'] + $levels['processes_lvl2'] + $levels['operations_lvl2'] + $levels['actors_lvl2'] + $levels['informations_lvl2']) / $denominator
+            ($levels['macroProcessuses_lvl2'] + $levels['processes_lvl2'] + $levels['activities_lvl2'] + $levels['operations_lvl2'] + $levels['actors_lvl2'] + $levels['informations_lvl2']) / $denominator
             : 0
         );
 
@@ -150,7 +150,7 @@ class AuditController extends HomeController
         $sheet->setCellValue(
             "G{$row}",
             $denominator > 0 ?
-            ($levels['macroProcessuses_lvl3'] + $levels['processes_lvl2'] + $levels['activities_lvl3'] + $levels['tasks_lvl3'] + $levels['operations_lvl2'] + $levels['actors_lvl2'] + $levels['informations_lvl2']) / $denominator
+            ($levels['macroProcessuses_lvl3'] + $levels['processes_lvl2'] + $levels['activities_lvl2'] + $levels['tasks_lvl3'] + $levels['operations_lvl2'] + $levels['actors_lvl2'] + $levels['informations_lvl2']) / $denominator
             : 0
         );
         $row++;
@@ -179,10 +179,10 @@ class AuditController extends HomeController
         $sheet->setCellValue("A{$row}", trans('cruds.activity.title'));
         $sheet->setCellValue("B{$row}", '');
         $sheet->setCellValue("C{$row}", '');
-        $sheet->setCellValue("D{$row}", '');
-        $sheet->setCellValue("E{$row}", '');
+        $sheet->setCellValue("D{$row}", $levels['activities']);
+        $sheet->setCellValue("E{$row}", $levels['activities'] > 0 ? $levels['activities_lvl2'] / $levels['activities'] : 0);
         $sheet->setCellValue("F{$row}", $levels['activities']);
-        $sheet->setCellValue("G{$row}", $levels['activities'] > 0 ? $levels['activities_lvl3'] / $levels['activities'] : 0);
+        $sheet->setCellValue("G{$row}", $levels['activities'] > 0 ? $levels['activities_lvl2'] / $levels['activities'] : 0);
         $row++;
 
         // Operation
@@ -258,7 +258,7 @@ class AuditController extends HomeController
         $sheet->setCellValue(
             "G{$row}",
             $denominator > 0 ?
-            ($levels['applicationBlocks_lvl2'] + $levels['applications_lvl2'] + $levels['applicationServices_lvl2'] + $levels['applicationModules_lvl2'] + $levels['databases_lvl2'] + $levels['fluxes_lvl1']) / $denominator
+            ($levels['applicationBlocks_lvl2'] + $levels['applications_lvl3'] + $levels['applicationServices_lvl2'] + $levels['applicationModules_lvl2'] + $levels['databases_lvl2'] + $levels['fluxes_lvl1']) / $denominator
             : 0
         );
         $row++;
@@ -280,7 +280,7 @@ class AuditController extends HomeController
         $sheet->setCellValue("D{$row}", $levels['applications']);
         $sheet->setCellValue("E{$row}", $levels['applications'] > 0 ? $levels['applications_lvl2'] / $levels['applications'] : 0);
         $sheet->setCellValue("F{$row}", $levels['applications']);
-        $sheet->setCellValue("G{$row}", $levels['applications'] > 0 ? $levels['applications_lvl2'] / $levels['applications'] : 0);
+        $sheet->setCellValue("G{$row}", $levels['applications'] > 0 ? $levels['applications_lvl3'] / $levels['applications'] : 0);
         $row++;
 
         // applicationService
@@ -330,7 +330,7 @@ class AuditController extends HomeController
         $sheet->getStyle("A{$row}:G{$row}")->getFont()->setBold(true);
         $sheet->getStyle("A{$row}:G{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFAEC7E8');
 
-	// L1
+        // L1
         $denominator = $levels['zones'] + $levels['annuaires'] + $levels['forests'] + $levels['domaines'];
         $sheet->setCellValue("B{$row}", $denominator);
         $sheet->setCellValue(
@@ -726,7 +726,7 @@ class AuditController extends HomeController
 
     public function changes()
     {
-        $path = storage_path('app/changes.xlsx');
+        $path = storage_path('app/changes-' . Carbon::today()->format('Ymd') . '.xlsx');
 
         /*
         select subject_type, description, YEAR(created_at) as year, MONTH(created_at) as month, count(*) as count
@@ -768,13 +768,13 @@ class AuditController extends HomeController
         // bold title
         $sheet->getStyle('1')->getFont()->setBold(true);
         // white font
-        $sheet->getStyle('1') ->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A2') ->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A9') ->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A31') ->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A50') ->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A63') ->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A93') ->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('1')->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A2')->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A9')->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A31')->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A50')->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A63')->getFont()->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A93')->getFont()->getColor()->setRGB('FFFFFF');
 
         // background color
         $sheet->getStyle('A1:O1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1F77BE');
@@ -797,15 +797,15 @@ class AuditController extends HomeController
         $sheet->getStyle('A94:A141')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFAEC7E8');
 
         // column size and border
-        for ($i = 0; $i <=14; $i++) {
-            $col=chr(ord('A') + $i);
+        for ($i = 0; $i <= 14; $i++) {
+            $col = chr(ord('A') + $i);
             $sheet->getColumnDimension($col)->setAutoSize(true);
             $sheet->getStyle("{$col}1")->getBorders()->getOutline()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
             $sheet->getStyle("{$col}2")->getBorders()->getOutline()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
         }
 
         // Center
-        $sheet->getStyle("B1:O141")->getAlignment()->setHorizontal('center');
+        $sheet->getStyle('B1:O141')->getAlignment()->setHorizontal('center');
 
         // Total months
         $tMonths = Carbon::now()->year * 12 + Carbon::now()->month;

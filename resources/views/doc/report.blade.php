@@ -4,12 +4,13 @@
 <div class="content">
     <div class="row">
         <div class="col-lg-12">
+
             <div class="card">
                 <div class="card-header">
                     {{ trans("cruds.report.cartography.title") }}
                 </div>
                 <div class="card-body">
-                  <form method="POST" action="/admin/report/cartography" enctype="multipart/form-data" target="_new">
+                  <form method="POST" action="{{ route('admin.report.cartography') }}" enctype="multipart/form-data" target="_new">
                     @method('PUT')
                     @csrf
                     <div class="form-group">
@@ -52,6 +53,12 @@
                 </div>
               </div>
 
+            </div>
+        </div>
+        <div class="row">
+
+        <div class="col-lg-6">
+
               <div class="card">
                 <div class="card-header">
                     {{ trans("cruds.report.lists.title") }}
@@ -59,68 +66,112 @@
                 <div class="card-body">
                   <ul>
                     <li>
-                        <a href="/admin/report/entities" target="_new">{{ trans("cruds.report.lists.entities") }}</a>
+                        <a href="{{ route('admin.report.entities') }}" target="_new">{{ trans("cruds.report.lists.entities") }}</a>
                         <br>
                         {{ trans("cruds.report.lists.entities_helper") }}
                         <br>                    
                         <br>
                     </li>
                     <li>
-                        <a href="/admin/report/applicationsByBlocks" target="_new">{{ trans("cruds.report.lists.applications") }}</a>
+                        <a href="{{ route('admin.report.applicationsByBlocks') }}" target="_new">{{ trans("cruds.report.lists.applications") }}</a>
                         <br>
                         {{ trans("cruds.report.lists.applications_helper") }}
                         <br><br>
                     </li>
                     <li>
-                        <a href="/admin/report/logicalServerResp" target="_new">{{ trans("cruds.report.lists.logical_servers") }}</a><br>
+                        <a href="{{ route('admin.report.logicalServers') }}" target="_new">{{ trans("cruds.report.lists.logical_servers") }}</a><br>
                         {{ trans("cruds.report.lists.logical_servers_helper") }}
                         <br><br>
                     </li>
 
                     <li>
-                        <a href="/admin/report/securityNeeds" target="_new">{{ trans("cruds.report.lists.security_needs") }}</a>
+                        <a href="{{ route('admin.report.securityNeeds') }}" target="_new">{{ trans("cruds.report.lists.security_needs") }}</a>
                         <br>
                         {{ trans("cruds.report.lists.security_needs_helper") }}
                         <br><br>
                     </li>
 
                     <li>
-                        <a href="/admin/report/logicalServerConfigs" target="_new">{{ trans("cruds.report.lists.logical_server_configurations") }}</a>                      
+                        <a href="{{ route('admin.report.logicalServerConfigs') }}" target="_new">{{ trans("cruds.report.lists.logical_server_configurations") }}</a>                      
                         <br>
                         {{ trans("cruds.report.lists.logical_server_configurations_helper") }}
                         <br><br>
                     </li>
                     <li>
-                        <a href="/admin/report/physicalInventory" target="_new">{{ trans("cruds.report.lists.physical_inventory") }}</a>
+                        <a href="{{ route('admin.report.externalAccess') }}" target="_new">{{ trans("cruds.report.lists.external_access") }}</a>
+                        <br>
+                        {{ trans("cruds.report.lists.external_access_helper") }}
+                        <br><br>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.report.physicalInventory') }}" target="_new">{{ trans("cruds.report.lists.physical_inventory") }}</a>
                         <br>
                         {{ trans("cruds.report.lists.physical_inventory_helper") }}
+                        <br><br>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.report.workstations') }}" target="_new">{{ trans("cruds.report.lists.workstation_inventory") }}</a>
+                        <br>
+                        {{ trans("cruds.report.lists.workstation_inventory_helper") }}
                         <br><br>
                     </li>
                   </ul>
                 </div>
               </div>
 
-              <div class="card">
+          </div>
+
+        <div class="col-lg-6">
+            @can('gdpr_access')
+            <div class="card">
+                <div class="card-header">
+                    {{ trans("cruds.report.lists.gdpr") }}
+                </div>
+                <div class="card-body">
+                    <ul>
+                        <li>
+                            <a href="/admin/report/activityReport" target="_new">{{ trans("cruds.report.lists.register_report") }}</a>
+                            <br>
+                            {{ trans("cruds.report.lists.register_report") }}
+                            <br>                    
+                            <br>
+                        </li>
+                        <li>
+                            <a href="/admin/report/activityList" target="_new">{{ trans("cruds.report.lists.register_list") }}</a>
+                            <br>
+                            {{ trans("cruds.report.lists.register_list_helper") }}
+                            <br>                    
+                            <br>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            @endcan
+
+            <div class="card">
                 <div class="card-header">
                     {{ trans("cruds.report.lists.audit") }}
                 </div>
                 <div class="card-body">
-                  <ul>
-                    <li>
-                        <a href="/admin/audit/maturity" target="_new">{{ trans("cruds.report.lists.maturity") }}</a>
-                        <br>
-                        {{ trans("cruds.report.lists.maturity_helper") }}
-                        <br>                    
-                        <br>
-                    </li>
+                    <ul>
+                        <li>
+                            <a href="/admin/audit/maturity" target="_new">{{ trans("cruds.report.lists.maturity") }}</a>
+                            <br>
+                            {{ trans("cruds.report.lists.maturity_helper") }}
+                            <br>                    
+                            <br>
+                        </li>
                     <li>
                         <a href="/admin/audit/changes" target="_new">{{ trans("cruds.report.lists.changes") }}</a>
                         <br>
                         {{ trans("cruds.report.lists.changes_helper") }}
                     </li>
                 </ul>
-                </div>
-              </div>
+            </div>
+        </div>
+    </div>
+</div>
+
           </div>
         </div>
         <br><br><br>

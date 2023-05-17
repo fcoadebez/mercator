@@ -1,3 +1,4 @@
+
 # Mercator
 
 Mercator est une application Web permettant de gérer la cartographie d’un système d’information comme décrit dans le [Guide pour la cartographie du Système d’information](https://www.ssi.gouv.fr/guide/cartographie-du-systeme-dinformation/) de l’[ANSSI](https://www.ssi.gouv.fr/). La [documentation](https://dbarzin.github.io/mercator/) et les [sources de l'application](https://dbarzin.github.io/mercator/) sont publiées sur GitHub.
@@ -19,11 +20,13 @@ L’élaboration d’une cartographie participe à la protection, à la défense
 - Génération du rapport d'Architecture du Système d'Information
 - Dessin des schémas de cartographie
 - Calcul des niveaux de conformité
+- Recherche de CVE avec [CVE-Search](https://github.com/cve-search/cve-search)
 - Extraction en Excel, CSV, PDF … de toutes les listes
 - REST API avec JSON
 - Multi utilisateurs avec gestion de rôles
 - Multilingue
-- Connexion LDAP
+- Connexion LDAP / Active Directory
+- [CPE](https://nvd.nist.gov/products/cpe) - Common Platform Enumeration
 
 ## Ecrans
 
@@ -43,6 +46,10 @@ Dessin de la cartographie
 
 [<img src="public/screenshots/mercator6.png" width="400" height="300">](public/screenshots/mercator6.fr.png) [<img src="public/screenshots/mercator7.png" width="400" height="300">](public/screenshots/mercator7.fr.png)
 
+Explorer
+
+[<img src="public/screenshots/mercator9.png" width="400">](public/screenshots/mercator9.fr.png)
+
 Modèle de données
 
 [<img src="public/screenshots/mercator8.png" width="400">](public/screenshots/mercator8.fr.png)
@@ -50,7 +57,7 @@ Modèle de données
 
 ## Technologies
 - PHP, Javascript, Laravel
-- Base de données supportées : MySQL, Postgres, SQLite, SQL Server
+- Base de données supportées : MySQL, Postgres, SQLite, SQL Server (cf.: [Laravel/Databases/introduction](https://laravel.com/docs/master/database#introduction) )
 - WebAssembly + Graphviz
 - ChartJS
 

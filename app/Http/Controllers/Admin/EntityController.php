@@ -20,7 +20,8 @@ class EntityController extends Controller
     {
         abort_if(Gate::denies('entity_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $entities = Entity::orderBy('name')->get();
+        $entities = Entity::with('entitiesProcesses', 'applications', 'databases')
+            ->orderBy('name')->get();
 
         return view('admin.entities.index', compact('entities'));
     }
@@ -32,8 +33,10 @@ class EntityController extends Controller
         $processes = Process::orderBy('identifiant')->pluck('identifiant', 'id');
         $applications = MApplication::orderBy('name')->pluck('name', 'id');
         $databases = Database::orderBy('name')->pluck('name', 'id');
-
-        return view('admin.entities.create', compact('processes', 'applications', 'databases'));
+        $entityTypes = Entity::select('entity_type')
+            ->where('entity_type', '<>', null)->distinct()
+            ->orderBy('entity_type')->pluck('entity_type');
+        return view('admin.entities.create', compact('processes', 'entityTypes', 'applications', 'databases'));
     }
 
     public function store(StoreEntityRequest $request)
@@ -66,20 +69,21 @@ class EntityController extends Controller
     public function edit(Entity $entity)
     {
         abort_if(Gate::denies('entity_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
-
         $processes = Process::orderBy('identifiant')->pluck('identifiant', 'id');
         $applications = MApplication::orderBy('name')->pluck('name', 'id');
         $databases = Database::orderBy('name')->pluck('name', 'id');
-
+        $entityTypes = Entity::select('entity_type')
+            ->where('entity_type', '<>', null)->distinct()
+            ->orderBy('entity_type')->pluck('entity_type');
         $entity->load('entitiesProcesses', 'applications', 'databases');
 
-        return view('admin.entities.edit', compact('entity', 'processes', 'applications', 'databases'));
+        return view('admin.entities.edit', compact('entity', 'entityTypes', 'processes', 'applications', 'databases'));
     }
 
     public function update(UpdateEntityRequest $request, Entity $entity)
     {
+        $entity->is_external = $request->has('is_external');
         $entity->update($request->all());
-
         $entity->entitiesProcesses()->sync($request->input('processes', []));
 
         // update applications table

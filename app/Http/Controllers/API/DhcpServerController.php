@@ -3,28 +3,23 @@
 namespace App\Http\Controllers\API;
 
 use App\DhcpServer;
-
+use App\Http\Controllers\Controller;
+use App\Http\Requests\MassDestroyDhcpServerRequest;
 use App\Http\Requests\StoreDhcpServerRequest;
 use App\Http\Requests\UpdateDhcpServerRequest;
-use App\Http\Requests\MassDestroyDhcpServerRequest;
 use App\Http\Resources\Admin\DhcpServerResource;
-
 use Gate;
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-
-use Illuminate\Support\Facades\Log;
 
 class DhcpServerController extends Controller
 {
     public function index()
     {
-    abort_if(Gate::denies('dhcp_server_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+        abort_if(Gate::denies('dhcp_server_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-    $dhcpservers = DhcpServer::all();
+        $dhcpservers = DhcpServer::all();
 
-    return response()->json($dhcpservers);
+        return response()->json($dhcpservers);
     }
 
     public function store(StoreDhcpServerRequest $request)
@@ -38,29 +33,29 @@ class DhcpServerController extends Controller
         return response()->json($dhcpserver, 201);
     }
 
-    public function show(DhcpServer $dhcpserver)
+    public function show(DhcpServer $dhcpServer)
     {
         abort_if(Gate::denies('dhcp_server_show'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        return new DhcpServerResource($dhcpserver);
+        return new DhcpServerResource($dhcpServer);
     }
 
-    public function update(UpdateDhcpServerRequest $request, DhcpServer $dhcpserver)
-    {     
+    public function update(UpdateDhcpServerRequest $request, DhcpServer $dhcpServer)
+    {
         abort_if(Gate::denies('dhcp_server_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $dhcpserver->update($request->all());
+        $dhcpServer->update($request->all());
         // syncs
-        // $dhcpserver->roles()->sync($request->input('roles', []));
+        // $dhcpServer->roles()->sync($request->input('roles', []));
 
         return response()->json();
     }
 
-    public function destroy(DhcpServer $dhcpserver)
+    public function destroy(DhcpServer $dhcpServer)
     {
         abort_if(Gate::denies('dhcp_server_delete'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $dhcpserver->delete();
+        $dhcpServer->delete();
 
         return response()->json();
     }
@@ -71,6 +66,4 @@ class DhcpServerController extends Controller
 
         return response(null, Response::HTTP_NO_CONTENT);
     }
-
 }
-

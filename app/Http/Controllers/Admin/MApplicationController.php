@@ -12,11 +12,10 @@ use App\Http\Requests\StoreMApplicationRequest;
 use App\Http\Requests\UpdateMApplicationRequest;
 use App\LogicalServer;
 use App\MApplication;
-use App\MApplicationEvent;
+use App\Process;
 use App\Services\CartographerService;
 use App\Services\EventService;
 use App\User;
-use App\Process;
 // CoreUI Gates
 use Gate;
 // Laravel Gate
@@ -36,7 +35,8 @@ class MApplicationController extends Controller
      *
      * @return void
      */
-    public function __construct(CartographerService $cartographerService, EventService $eventService) {
+    public function __construct(CartographerService $cartographerService, EventService $eventService)
+    {
         $this->cartographerService = $cartographerService;
         $this->eventService = $eventService;
     }
@@ -45,7 +45,8 @@ class MApplicationController extends Controller
     {
         abort_if(Gate::denies('m_application_access'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $applications = MApplication::all()->sortBy('name');
+        $applications = MApplication::with('application_block', 'entity_resp', 'entities', 'processes')
+            ->orderBy('name')->get();
 
         return view('admin.applications.index', compact('applications'));
     }
@@ -66,7 +67,18 @@ class MApplicationController extends Controller
         $technology_list = MApplication::select('technology')->where('technology', '<>', null)->distinct()->orderBy('technology')->pluck('technology');
         $users_list = MApplication::select('users')->where('users', '<>', null)->distinct()->orderBy('users')->pluck('users');
         $external_list = MApplication::select('external')->where('external', '<>', null)->distinct()->orderBy('external')->pluck('external');
+
         $responsible_list = MApplication::select('responsible')->where('responsible', '<>', null)->distinct()->orderBy('responsible')->pluck('responsible');
+        $res = [];
+        foreach ($responsible_list as $i) {
+            foreach (explode(',', $i) as $j) {
+                if (strlen(trim($j)) > 0) {
+                    $res[] = trim($j);
+                }
+            }
+        }
+        $responsible_list = array_unique($res);
+
         $referent_list = MApplication::select('functional_referent')->where('functional_referent', '<>', null)->distinct()->orderBy('functional_referent')->pluck('functional_referent');
         $editor_list = MApplication::select('editor')->where('editor', '<>', null)->distinct()->orderBy('editor')->pluck('editor');
         $cartographers_list = User::all()->sortBy('name')->pluck('name', 'id');
@@ -95,7 +107,15 @@ class MApplicationController extends Controller
 
     public function store(StoreMApplicationRequest $request)
     {
+        $request->merge(['responsible' => implode(', ', $request->responsibles !== null ? $request->responsibles : [])]);
+
         $application = MApplication::create($request->all());
+
+        // rto-rpo
+        $application->rto = $request->rto_days * 60 * 24 + $request->rto_hours * 60 + $request->rto_minutes;
+        $application->rpo = $request->rpo_days * 60 * 24 + $request->rpo_hours * 60 + $request->rpo_minutes;
+        $application->save();
+
         $application->entities()->sync($request->input('entities', []));
         $application->processes()->sync($request->input('processes', []));
         $application->services()->sync($request->input('services', []));
@@ -112,6 +132,7 @@ class MApplicationController extends Controller
     public function edit(MApplication $application)
     {
         abort_if(Gate::denies('m_application_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
+
         // Check for cartographers
         LaravelGate::authorize('is-cartographer-m-application', $application);
 
@@ -123,12 +144,32 @@ class MApplicationController extends Controller
         $logical_servers = LogicalServer::all()->sortBy('name')->pluck('name', 'id');
         $application_blocks = ApplicationBlock::all()->sortBy('name')->pluck('name', 'id')->prepend(trans('global.pleaseSelect'), '');
 
+        // rto-rpo
+        $application->rto_days = intdiv($application->rto, 60 * 24);
+        $application->rto_hours = intdiv($application->rto, 60) % 24;
+        $application->rto_minutes = $application->rto % 60;
+
+        $application->rpo_days = intdiv($application->rpo, 60 * 24);
+        $application->rpo_hours = intdiv($application->rpo, 60) % 24;
+        $application->rpo_minutes = $application->rpo % 60;
+
         // lists
         $type_list = MApplication::select('type')->where('type', '<>', null)->distinct()->orderBy('type')->pluck('type');
         $technology_list = MApplication::select('technology')->where('technology', '<>', null)->distinct()->orderBy('technology')->pluck('technology');
         $users_list = MApplication::select('users')->where('users', '<>', null)->distinct()->orderBy('users')->pluck('users');
         $external_list = MApplication::select('external')->where('external', '<>', null)->distinct()->orderBy('external')->pluck('external');
+
         $responsible_list = MApplication::select('responsible')->where('responsible', '<>', null)->distinct()->orderBy('responsible')->pluck('responsible');
+        $res = [];
+        foreach ($responsible_list as $i) {
+            foreach (explode(',', $i) as $j) {
+                if (strlen(trim($j)) > 0) {
+                    $res[] = trim($j);
+                }
+            }
+        }
+        $responsible_list = array_unique($res);
+
         $referent_list = MApplication::select('functional_referent')->where('functional_referent', '<>', null)->distinct()->orderBy('functional_referent')->pluck('functional_referent');
         $editor_list = MApplication::select('editor')->where('editor', '<>', null)->distinct()->orderBy('editor')->pluck('editor');
         $cartographers_list = User::all()->sortBy('name')->pluck('name', 'id');
@@ -155,19 +196,27 @@ class MApplicationController extends Controller
                 'responsible_list',
                 'referent_list',
                 'editor_list',
-	            'cartographers_list'
+                'cartographers_list'
             )
         );
     }
 
     public function update(UpdateMApplicationRequest $request, MApplication $application)
     {
+        $application->responsible = implode(', ', $request->responsibles !== null ? $request->responsibles : []);
+
+        // rto-rpo
+        $application->rto = $request->rto_days * 60 * 24 + $request->rto_hours * 60 + $request->rto_minutes;
+        $application->rpo = $request->rpo_days * 60 * 24 + $request->rpo_hours * 60 + $request->rpo_minutes;
+
+        // other fields
         $application->update($request->all());
+
         $application->entities()->sync($request->input('entities', []));
         $application->processes()->sync($request->input('processes', []));
         $application->services()->sync($request->input('services', []));
         $application->databases()->sync($request->input('databases', []));
-	    $application->cartographers()->sync($request->input('cartographers', []));
+        $application->cartographers()->sync($request->input('cartographers', []));
         $application->logical_servers()->sync($request->input('logical_servers', []));
 
         // Attribution du role pour les nouveaux cartographes
